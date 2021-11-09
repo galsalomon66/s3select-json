@@ -6,6 +6,7 @@
 #include "rapidjson/error/en.h"
 #include <chrono>
 #include <fstream>
+#include <vector>
 
 using namespace rapidjson;
 
@@ -35,29 +36,16 @@ public:
 class SearchCriterion
 {
    public:
-   std::string type;
-   std::string name;
-   std::string value;
-   void SetValue(const std::string& in) {value = in;}
-   std::string getValue(){return value;}
-};
-
-class SelectionCriteria
-{
-   public:
-   SelectionCriteria(){}
-   ~SelectionCriteria(){}
-
-   SearchCriterion m_searchCretiteria;
-   SearchCriterion& GetSearchCriteria() { return m_searchCretiteria; }
-
-   void SetSearchCriteria(SearchCriterion& in) { m_searchCretiteria = in; }
+   std::vector<std::string>  value;
+   std::vector <std::string> key;
+   void SetValue(const std::string& in) {value.push_back(in);}
+   void SetKey(const std::string& in) {key.push_back(in);}
+   std::vector <std::string> getKeys(){return key;}
+   std::vector <std::string> getValue(){return value;}
 };
 
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
-    std::string Keyname;
-    SelectionCriteria oSelectionCriteria;
     SearchCriterion oSearchCriterion;
     bool Null() { return true; }
     bool Bool(bool b) { return true; }
@@ -67,16 +55,15 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool Uint64(uint64_t u) { return true; }
     bool Double(double d) { return true; }
     bool String(const char* str, SizeType length, bool copy) {
-        oSearchCriterion.SetValue(str);
+        oSearchCriterion.SetValue(str);  
         return true;
     }
     bool StartObject() { return true; }
     bool Key(const char* str, SizeType length, bool copy) {
-        Keyname = str;
+        oSearchCriterion.SetKey(str);
         return true;
     }
     bool EndObject(SizeType memberCount) {
-       oSelectionCriteria.SetSearchCriteria(oSearchCriterion);
        return true;
     }
     bool StartArray() { return true; }
@@ -85,25 +72,21 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
 
 int main() 
 {
-   std::string stringFromStream;
-   std::ifstream in;
-   in.open("test.json", std::ifstream::in);
-   if (in.is_open()) {
-       std::string line;
-       while (getline(in, line)) {
-           stringFromStream.append(line + "\n");
-       }
-       in.close();
-   }
-   
-   const char* data = stringFromStream.c_str();
+    const char* data = "{\"selectionCriteria\": {\"maxEntries\": \"3\",\"searchCriteria\": {\"criterion\": {\"type\": \"Attribute\",\"name\": \"root\",\"value\": \"Yes\"}}}}";
 
     MyHandler handler;
     Reader reader;
     StringStream ss(data);
     Timer t;
     reader.Parse(ss, handler);
+    const std::vector<std::string> keys{handler.oSearchCriterion.getKeys()};
+    for (auto i : keys) {
+      std::cout<<i<<"\n";
+    }
 
+    const std::vector<std::string> values{handler.oSearchCriterion.getValue()};
+    for (auto i : values) {
+      std::cout<<i<<"\n";
+    }
     std::cout<<"Time taken: " << t.elapsed() << " seconds\n";
-    return 0;
-}
+    }
