@@ -7,8 +7,11 @@
 #include <chrono>
 #include <fstream>
 #include <vector>
+#include <map>
 
 using namespace rapidjson;
+
+static std::map < std::string, std::string>  mymap;
 
 class Timer
 {
@@ -40,6 +43,12 @@ class SearchCriterion
    std::vector <std::string> key;
    void SetValue(const std::string& in) {value.push_back(in);}
    void SetKey(const std::string& in) {key.push_back(in);}
+
+   void SetMap(const std::string& key, const std::string& value)
+   {
+    mymap.insert(make_pair(key, value));
+   }
+
    std::vector <std::string> getKeys(){return key;}
    std::vector <std::string> getValue(){return value;}
 };
@@ -47,6 +56,7 @@ class SearchCriterion
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
     SearchCriterion oSearchCriterion;
+    std::string keyname;
     bool Null() { return true; }
     bool Bool(bool b) { return true; }
     bool Int(int i) { return true; }
@@ -56,11 +66,13 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool Double(double d) { return true; }
     bool String(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetValue(str);  
+        oSearchCriterion.SetMap(keyname, str); 
         return true;
     }
     bool StartObject() { return true; }
     bool Key(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetKey(str);
+        keyname = str;
         return true;
     }
     bool EndObject(SizeType memberCount) {
@@ -72,13 +84,25 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
 
 int main() 
 {
-    const char* data = "{\"selectionCriteria\": {\"maxEntries\": \"3\",\"searchCriteria\": {\"criterion\": {\"type\": \"Attribute\",\"name\": \"root\",\"value\": \"Yes\"}}}}";
+   std::string stringFromStream;
+   std::ifstream in;
+   in.open("sample3.json", std::ifstream::in);
+   if (in.is_open()) {
+       std::string line;
+       while (getline(in, line)) {
+           stringFromStream.append(line + "\n");
+       }
+       in.close();
+   }
+
+    const char* data = stringFromStream.c_str();
 
     MyHandler handler;
     Reader reader;
     StringStream ss(data);
     Timer t;
     reader.Parse(ss, handler);
+
     const std::vector<std::string> keys{handler.oSearchCriterion.getKeys()};
     for (auto i : keys) {
       std::cout<<i<<"\n";
@@ -87,6 +111,14 @@ int main()
     const std::vector<std::string> values{handler.oSearchCriterion.getValue()};
     for (auto i : values) {
       std::cout<<i<<"\n";
+    } 
+
+    std::cout<<"Key-value pairs are: \n";
+
+    std::map<std::string, std::string>::iterator itr;
+    for (itr = mymap.begin(); itr != mymap.end(); ++itr) {
+        std::cout << '\t' << itr->first << '\t' << itr->second << '\n';
     }
+
     std::cout<<"Time taken: " << t.elapsed() << " seconds\n";
-    }
+}
