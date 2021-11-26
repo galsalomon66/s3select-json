@@ -7,11 +7,40 @@
 #include <chrono>
 #include <fstream>
 #include <vector>
-#include <map>
+#include <any>
 
 using namespace rapidjson;
 
-static std::map < std::string, std::string>  mymap;
+std::vector < std::pair < std::string, std::any>>  mymap;
+
+std::ostream &operator<<(std::ostream &os, const std::any &m) {
+    if (m.type() == typeid(int)) {
+        os << std::any_cast<int>(m);
+        return os;
+    }
+    else if (m.type() == typeid(double)) {
+        os << std::any_cast<double>(m);
+        return os;
+    }
+    else if (m.type() == typeid(char)) {
+        os << std::any_cast<char>(m);
+        return os;
+    }
+    else if (m.type() == typeid(bool)) {
+        os << std::boolalpha << std::any_cast<bool>(m);
+        return os;
+    }
+    else if (m.type() == typeid(std::string)) {
+        os << std::boolalpha << std::any_cast<std::string>(m);
+        return os;
+    }
+    else  {
+        os <<std::any_cast<const char*>(m);
+        return os;
+    }
+    return os;
+}
+
 
 class Timer
 {
@@ -43,12 +72,6 @@ class SearchCriterion
    std::vector <std::string> key;
    void SetValue(const std::string& in) {value.push_back(in);}
    void SetKey(const std::string& in) {key.push_back(in);}
-
-   void SetMap(const std::string& key, const std::string& value)
-   {
-    mymap.insert(make_pair(key, value));
-   }
-
    std::vector <std::string> getKeys(){return key;}
    std::vector <std::string> getValue(){return value;}
 };
@@ -57,6 +80,10 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
     SearchCriterion oSearchCriterion;
     std::string keyname;
+    std::string keystart;
+    std::string keypath;
+    bool start;
+    bool end;
     bool Null() { return true; }
     bool Bool(bool b) { return true; }
     bool Int(int i) { return true; }
@@ -66,16 +93,20 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool Double(double d) { return true; }
     bool String(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetValue(str);  
-        oSearchCriterion.SetMap(keyname, str); 
+        mymap.push_back(std::make_pair(keypath, str));
         return true;
     }
-    bool StartObject() { return true; }
+    bool StartObject() { 
+      keystart = keyname;
+      return true; }
     bool Key(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetKey(str);
         keyname = str;
+        keypath = keystart + '/' + keyname;
         return true;
     }
     bool EndObject(SizeType memberCount) {
+      keyname = "";
        return true;
     }
     bool StartArray() { return true; }
@@ -86,7 +117,7 @@ int main()
 {
    std::string stringFromStream;
    std::ifstream in;
-   in.open("sample3.json", std::ifstream::in);
+   in.open("sample2.json", std::ifstream::in);
    if (in.is_open()) {
        std::string line;
        while (getline(in, line)) {
@@ -111,13 +142,12 @@ int main()
     const std::vector<std::string> values{handler.oSearchCriterion.getValue()};
     for (auto i : values) {
       std::cout<<i<<"\n";
-    } 
+    }
 
     std::cout<<"Key-value pairs are: \n";
 
-    std::map<std::string, std::string>::iterator itr;
-    for (itr = mymap.begin(); itr != mymap.end(); ++itr) {
-        std::cout << '\t' << itr->first << '\t' << itr->second << '\n';
+    for (auto &a : mymap) {
+        std::cout << a.first << ": " << a.second << "\n";
     }
 
     std::cout<<"Time taken: " << t.elapsed() << " seconds\n";
