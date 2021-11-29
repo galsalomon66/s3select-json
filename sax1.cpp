@@ -4,43 +4,127 @@
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/filewritestream.h"
 #include "rapidjson/error/en.h"
+#include <boost/lexical_cast.hpp>
+#include <cassert>
+#include <sstream>
 #include <chrono>
 #include <fstream>
 #include <vector>
-#include <any>
+#include <iterator>
 
 using namespace rapidjson;
 
-std::vector < std::pair < std::string, std::any>>  mymap;
+class Value {
+public:
+    enum Type {
+        Int,
+        Double,
+        String
+    };
 
-std::ostream &operator<<(std::ostream &os, const std::any &m) {
-    if (m.type() == typeid(int)) {
-        os << std::any_cast<int>(m);
-        return os;
+    static Value Parse(std::string const& s);
+
+    Value(): _type(Int), _int(0), _double(0.0) {} 
+
+    Type type() const { return _type; }
+
+    int asInt() const {
+        assert(_type == Int && "not an int");
+        return _int;
     }
-    else if (m.type() == typeid(double)) {
-        os << std::any_cast<double>(m);
-        return os;
+
+    double asDouble() const {
+        assert(_type == Double && "not a double");
+        return _double;
     }
-    else if (m.type() == typeid(char)) {
-        os << std::any_cast<char>(m);
-        return os;
+
+    std::string const& asString() const {
+        assert(_type == String && "not a string");
+        return _string; 
     }
-    else if (m.type() == typeid(bool)) {
-        os << std::boolalpha << std::any_cast<bool>(m);
-        return os;
+
+private:
+    Type _type;
+    int _int;
+    double _double;
+    std::string _string;
+};
+
+static bool isInt(std::string const& s) {
+    if (s.empty()) { return false; }
+    
+    char const first = s.at(0);
+    if (not isdigit(first) and first != '-') { return false; }
+
+    for (char c: s.substr(1)) {
+        if (not isdigit(c)) { return false; }
     }
-    else if (m.type() == typeid(std::string)) {
-        os << std::boolalpha << std::any_cast<std::string>(m);
-        return os;
-    }
-    else  {
-        os <<std::any_cast<const char*>(m);
-        return os;
-    }
-    return os;
+
+    return true;
 }
 
+static bool maybeDouble(std::string const& s) {
+    if (s.empty()) { return false; }
+
+    char const first = s.at(0);
+    if (not isdigit(first) and first != '.' and first != '-') { return false; }
+
+    bool hasSeenDot = s.at(0) == '.';
+
+    for (char c: s.substr(1)) {
+        if (not isdigit(c) and c != '.') { return false; }
+
+        if (c == '.') {
+            if (hasSeenDot) { return false; }
+            hasSeenDot = true;
+        }
+    }
+
+    return true;
+}
+
+static Value::Type guessType(std::string const& s) {
+    if (isInt(s)) { return Value::Int; }
+
+    if (maybeDouble(s)) { return Value::Double; }
+
+    return Value::String;
+}
+
+Value Value::Parse(std::string const& s) {
+    Value result;
+
+    result._type = guessType(s);
+
+    switch(result._type) {
+    case Value::Int: {
+        std::istringstream ss(s);
+        ss >> result._int;
+        return result;
+    }
+    case Value::Double: {
+        std::istringstream ss(s);
+        ss >> result._double;
+        return result;
+    }
+    case Value::String:
+        result._string = s;
+        return result;
+    }
+
+    abort();
+}
+
+bool operator<(Value const& left, Value const& right) {
+    assert(left.type() == right.type() && "Different Types!");
+
+    switch(left.type()) {
+    case Value::Int: return left.asInt() < right.asInt();
+    case Value::Double: return left.asDouble() < right.asDouble();
+    case Value::String: return left.asString() < right.asString();
+    default: return false;
+    }
+}
 
 class Timer
 {
@@ -78,12 +162,10 @@ class SearchCriterion
 
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
+    std::vector < std::pair < std::string, Value>>  mymap;
     SearchCriterion oSearchCriterion;
     std::string keyname;
-    std::string keystart;
     std::string keypath;
-    bool start;
-    bool end;
     bool Null() { return true; }
     bool Bool(bool b) { return true; }
     bool Int(int i) { return true; }
@@ -93,31 +175,37 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool Double(double d) { return true; }
     bool String(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetValue(str);  
-        mymap.push_back(std::make_pair(keypath, str));
+        mymap.push_back(std::make_pair(keypath, Value::Parse(str)));
         return true;
     }
     bool StartObject() { 
-      keystart = keyname;
       return true; }
     bool Key(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetKey(str);
         keyname = str;
-        keypath = keystart + '/' + keyname;
+        keypath += '/' + keyname;
         return true;
     }
     bool EndObject(SizeType memberCount) {
-      keyname = "";
-       return true;
+      keypath = "";
+      return true;
     }
     bool StartArray() { return true; }
     bool EndArray(SizeType elementCount) { return true; }
 };
 
-int main() 
+std::ostream &operator<<(std::ostream &os, const std::vector < std::pair < std::string, Value>>  mymap) {
+    for (auto & [key, value] : mymap) {
+        os << "{" << key << ": " << value << "}\n";
+    }
+    return os;
+  }
+
+int main(int argc, char* argv[])
 {
    std::string stringFromStream;
    std::ifstream in;
-   in.open("sample2.json", std::ifstream::in);
+   in.open("sample9.json", std::ifstream::in);
    if (in.is_open()) {
        std::string line;
        while (getline(in, line)) {
@@ -146,9 +234,7 @@ int main()
 
     std::cout<<"Key-value pairs are: \n";
 
-    for (auto &a : mymap) {
-        std::cout << a.first << ": " << a.second << "\n";
-    }
+    std::cout<<handler.mymap;
 
     std::cout<<"Time taken: " << t.elapsed() << " seconds\n";
 }
