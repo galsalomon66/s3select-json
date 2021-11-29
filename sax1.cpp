@@ -11,7 +11,7 @@
 
 using namespace rapidjson;
 
-std::vector < std::pair < std::string, std::string>>  mymap;
+std::vector < std::pair < std::string, std::string>>  mymap;//mymap should not be global. it should be a part of the handler.
 /*
 std::ostream &operator<<(std::ostream &os, const std::any &m) {
     if (m.type() == typeid(int)) {
@@ -79,8 +79,8 @@ class SearchCriterion
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
     SearchCriterion oSearchCriterion;
-    std::string keyname;
-    std::string keystart;
+    std::string keyname;//GAL: no need for that
+    std::string keystart;//GAL: no need for that
     std::string keypath;
     bool Null() { return true; }
     bool Bool(bool b) { return true; }
@@ -111,11 +111,11 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool EndArray(SizeType elementCount) { return true; }
 };
 
-int main() 
+int main() //GAL: please use argc,argv
 {
    std::string stringFromStream;
    std::ifstream in;
-   in.open("sample9.json", std::ifstream::in);
+   in.open("sample9.json", std::ifstream::in); //GAL: this test application is more usable, in case it works with input file(not static input)
    if (in.is_open()) {
        std::string line;
        while (getline(in, line)) {
