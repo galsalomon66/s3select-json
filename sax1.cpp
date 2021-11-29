@@ -11,8 +11,8 @@
 
 using namespace rapidjson;
 
-std::vector < std::pair < std::string, std::any>>  mymap;
-
+std::vector < std::pair < std::string, std::string>>  mymap;
+/*
 std::ostream &operator<<(std::ostream &os, const std::any &m) {
     if (m.type() == typeid(int)) {
         os << std::any_cast<int>(m);
@@ -40,7 +40,7 @@ std::ostream &operator<<(std::ostream &os, const std::any &m) {
     }
     return os;
 }
-
+*/
 
 class Timer
 {
@@ -82,8 +82,6 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     std::string keyname;
     std::string keystart;
     std::string keypath;
-    bool start;
-    bool end;
     bool Null() { return true; }
     bool Bool(bool b) { return true; }
     bool Int(int i) { return true; }
@@ -102,12 +100,12 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool Key(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetKey(str);
         keyname = str;
-        keypath = keystart + '/' + keyname;
+        keypath += '/' + keyname;
         return true;
     }
     bool EndObject(SizeType memberCount) {
-      keyname = "";
-       return true;
+      keypath = "";
+      return true;
     }
     bool StartArray() { return true; }
     bool EndArray(SizeType elementCount) { return true; }
@@ -117,7 +115,7 @@ int main()
 {
    std::string stringFromStream;
    std::ifstream in;
-   in.open("sample2.json", std::ifstream::in);
+   in.open("sample9.json", std::ifstream::in);
    if (in.is_open()) {
        std::string line;
        while (getline(in, line)) {
