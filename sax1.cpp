@@ -50,7 +50,7 @@ private:
     std::string _string;
 };
 
-static bool isInt(std::string const& s) {
+static bool isInt(std::string const& s) {//GAL: no need for that, RapidJson is a parser. which able to identify all types.
     if (s.empty()) { return false; }
     
     char const first = s.at(0);
@@ -63,7 +63,7 @@ static bool isInt(std::string const& s) {
     return true;
 }
 
-static bool maybeDouble(std::string const& s) {
+static bool maybeDouble(std::string const& s) {//GAL: no need for that, RapidJson is a parser. which able to identify all types.
     if (s.empty()) { return false; }
 
     char const first = s.at(0);
@@ -83,7 +83,7 @@ static bool maybeDouble(std::string const& s) {
     return true;
 }
 
-static Value::Type guessType(std::string const& s) {
+static Value::Type guessType(std::string const& s) {//GAL: no need for that, RapidJson is a parser. which able to identify all types.
     if (isInt(s)) { return Value::Int; }
 
     if (maybeDouble(s)) { return Value::Double; }
@@ -91,7 +91,7 @@ static Value::Type guessType(std::string const& s) {
     return Value::String;
 }
 
-Value Value::Parse(std::string const& s) {
+Value Value::Parse(std::string const& s) {//GAL: no need for that, RapidJson is a parser. which able to identify all types.
     Value result;
 
     result._type = guessType(s);
@@ -115,7 +115,7 @@ Value Value::Parse(std::string const& s) {
     abort();
 }
 
-bool operator<(Value const& left, Value const& right) {
+bool operator<(Value const& left, Value const& right) {//GAL: what is purpose of that.
     assert(left.type() == right.type() && "Different Types!");
 
     switch(left.type()) {
@@ -150,7 +150,7 @@ public:
 };
 
 class SearchCriterion
-{
+{//GAL: it support only string?
    public:
    std::vector<std::string>  value;
    std::vector <std::string> key;
@@ -163,7 +163,7 @@ class SearchCriterion
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
     std::vector < std::pair < std::string, Value>>  mymap;
-    SearchCriterion oSearchCriterion;
+    SearchCriterion oSearchCriterion;//GAL: maybe its better without SearchCriterion 
     std::string keyname;
     std::string keypath;
     bool Null() { return true; }
@@ -183,7 +183,7 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool Key(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetKey(str);
         keyname = str;
-        keypath += '/' + keyname;
+        keypath += '/' + keyname;//GAL : no need for keyname
         return true;
     }
     bool EndObject(SizeType memberCount) {
@@ -198,7 +198,7 @@ int main(int argc, char* argv[])
 {
    std::string stringFromStream;
    std::ifstream in;
-   in.open("sample9.json", std::ifstream::in);
+   in.open("sample9.json", std::ifstream::in);//GAL: please replace "sample9.json" with dynamic parameter (argv[1])
    if (in.is_open()) {
        std::string line;
        while (getline(in, line)) {
