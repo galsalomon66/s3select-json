@@ -194,13 +194,6 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool EndArray(SizeType elementCount) { return true; }
 };
 
-std::ostream &operator<<(std::ostream &os, const std::vector < std::pair < std::string, Value>>  mymap) {
-    for (auto & [key, value] : mymap) {
-        os << "{" << key << ": " << value << "}\n";
-    }
-    return os;
-  }
-
 int main(int argc, char* argv[])
 {
    std::string stringFromStream;
@@ -234,7 +227,15 @@ int main(int argc, char* argv[])
 
     std::cout<<"Key-value pairs are: \n";
 
-    std::cout<<handler.mymap;
+    for (auto const& i: handler.mymap) {
+        std::cout<<i.first<<": ";
+        switch((i.second).type()) {
+        case Value::Int: std::cout << (i.second).asInt() << "\n"; break;
+        case Value::Double: std::cout << (i.second).asDouble() << "\n"; break;
+        case Value::String: std::cout << (i.second).asString() << "\n"; break;
+        default: break;
+        }
+    }
 
     std::cout<<"Time taken: " << t.elapsed() << " seconds\n";
 }
