@@ -19,10 +19,11 @@ public:
     enum Type {
         Int,
         Double,
-        String
+        String,
     };
-
+    
     static Value Parse(std::string const& s);
+    static Value Parse(double const& s);
 
     Value(): _type(Int), _int(0), _double(0.0) {} 
 
@@ -50,80 +51,20 @@ private:
     std::string _string;
 };
 
-static bool isInt(std::string const& s) {
-    if (s.empty()) { return false; }
-    
-    char const first = s.at(0);
-    if (not isdigit(first) and first != '-') { return false; }
-
-    for (char c: s.substr(1)) {
-        if (not isdigit(c)) { return false; }
-    }
-
-    return true;
-}
-
-static bool maybeDouble(std::string const& s) {
-    if (s.empty()) { return false; }
-
-    char const first = s.at(0);
-    if (not isdigit(first) and first != '.' and first != '-') { return false; }
-
-    bool hasSeenDot = s.at(0) == '.';
-
-    for (char c: s.substr(1)) {
-        if (not isdigit(c) and c != '.') { return false; }
-
-        if (c == '.') {
-            if (hasSeenDot) { return false; }
-            hasSeenDot = true;
-        }
-    }
-
-    return true;
-}
-
-static Value::Type guessType(std::string const& s) {
-    if (isInt(s)) { return Value::Int; }
-
-    if (maybeDouble(s)) { return Value::Double; }
-
-    return Value::String;
-}
-
 Value Value::Parse(std::string const& s) {
     Value result;
+    result._type = Value::String;
 
-    result._type = guessType(s);
-
-    switch(result._type) {
-    case Value::Int: {
-        std::istringstream ss(s);
-        ss >> result._int;
-        return result;
-    }
-    case Value::Double: {
-        std::istringstream ss(s);
-        ss >> result._double;
-        return result;
-    }
-    case Value::String:
-        result._string = s;
-        return result;
-    }
-
-    abort();
+    result._string = s;
+    return result;
 }
 
-bool operator<(Value const& left, Value const& right) {
-    assert(left.type() == right.type() && "Different Types!");
+Value Value::Parse(double const& s) {
+    Value result;
+    result._type = Value::Double;
 
-    switch(left.type()) {
-    case Value::Int: return left.asInt() < right.asInt();
-    case Value::Double: return left.asDouble() < right.asDouble();
-    case Value::String: return left.asString() < right.asString();
-    default: return false;
-    }
+    result._double = s;
+    return result;
 }
 
 class Timer
@@ -172,7 +113,9 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool Uint(unsigned u) { return true; }
     bool Int64(int64_t i) { return true; }
     bool Uint64(uint64_t u) { return true; }
-    bool Double(double d) { return true; }
+    bool Double(double d) { 
+      mymap.push_back(std::make_pair(keypath, Value::Parse(d)));
+      return true; }
     bool String(const char* str, SizeType length, bool copy) {
         oSearchCriterion.SetValue(str);  
         mymap.push_back(std::make_pair(keypath, Value::Parse(str)));
