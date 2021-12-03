@@ -90,23 +90,12 @@ public:
   }
 };
 
-class SearchCriterion
-{
-   public:
-   std::vector<std::string>  value;
-   std::vector <std::string> key;
-   void SetValue(const std::string& in) {value.push_back(in);}
-   void SetKey(const std::string& in) {key.push_back(in);}
-   std::vector <std::string> getKeys(){return key;}
-   std::vector <std::string> getValue(){return value;}
-};
-
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
     std::vector < std::pair < std::string, Value>>  mymap;
-    SearchCriterion oSearchCriterion;
     std::string keyname;
     std::string keypath;
+    std::string keyvalue;
     bool Null() { return true; }
     bool Bool(bool b) { return true; }
     bool Int(int i) { return true; }
@@ -114,19 +103,18 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     bool Int64(int64_t i) { return true; }
     bool Uint64(uint64_t u) { return true; }
     bool Double(double d) { 
-      mymap.push_back(std::make_pair(keypath, Value::Parse(d)));
+      mymap.push_back(std::make_pair(keyvalue, Value::Parse(d)));
       return true; }
     bool String(const char* str, SizeType length, bool copy) {
-        oSearchCriterion.SetValue(str);  
-        mymap.push_back(std::make_pair(keypath, Value::Parse(str)));
+        mymap.push_back(std::make_pair(keyvalue, Value::Parse(str)));
         return true;
     }
-    bool StartObject() { 
+    bool StartObject() {
+      keypath += keyname + '/';
       return true; }
     bool Key(const char* str, SizeType length, bool copy) {
-        oSearchCriterion.SetKey(str);
         keyname = str;
-        keypath += '/' + keyname;
+        keyvalue = keypath + keyname;
         return true;
     }
     bool EndObject(SizeType memberCount) {
@@ -141,7 +129,8 @@ int main(int argc, char* argv[])
 {
    std::string stringFromStream;
    std::ifstream in;
-   in.open("sample9.json", std::ifstream::in);
+   const char *jsonfile = argv[1];
+   in.open(jsonfile, std::ifstream::in);
    if (in.is_open()) {
        std::string line;
        while (getline(in, line)) {
@@ -157,16 +146,6 @@ int main(int argc, char* argv[])
     StringStream ss(data);
     Timer t;
     reader.Parse(ss, handler);
-
-    const std::vector<std::string> keys{handler.oSearchCriterion.getKeys()};
-    for (auto i : keys) {
-      std::cout<<i<<"\n";
-    }
-
-    const std::vector<std::string> values{handler.oSearchCriterion.getValue()};
-    for (auto i : values) {
-      std::cout<<i<<"\n";
-    }
 
     std::cout<<"Key-value pairs are: \n";
 
