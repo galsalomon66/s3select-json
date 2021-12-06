@@ -4,34 +4,39 @@
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/filewritestream.h"
 #include "rapidjson/error/en.h"
-#include <boost/lexical_cast.hpp>
 #include <cassert>
 #include <sstream>
 #include <chrono>
 #include <fstream>
 #include <vector>
 #include <iterator>
+#include <cstddef>
 
 using namespace rapidjson;
 
 class Value {
 public:
     enum Type {
-        Int,
+        Decimal,
         Double,
         String,
+        Bool,
+        Null
     };
     
     static Value Parse(std::string const& s);
-    static Value Parse(double const& s);
+    static Value Parse(const double& s);
+    static Value Parse(bool& s);
+    static Value Parse(const unsigned& s);
+    static Value Parse(const std::nullptr_t& s);
 
-    Value(): _type(Int), _int(0), _double(0.0) {} 
+    Value(): _type(Decimal), _num(0), _double(0.0), _bool(false) {}
 
     Type type() const { return _type; }
 
     int asInt() const {
-        assert(_type == Int && "not an int");
-        return _int;
+        assert(_type == Decimal && "not an int");
+        return _num;
     }
 
     double asDouble() const {
@@ -41,14 +46,21 @@ public:
 
     std::string const& asString() const {
         assert(_type == String && "not a string");
-        return _string; 
+        return _string;
+    }
+
+    bool asBool() const {
+        assert(_type == Bool && "not a bool");
+        return _bool;
     }
 
 private:
     Type _type;
-    int _int;
     double _double;
     std::string _string;
+    bool _bool;
+    int64_t _num;;
+    std::nullptr_t _null;
 };
 
 Value Value::Parse(std::string const& s) {
@@ -59,11 +71,35 @@ Value Value::Parse(std::string const& s) {
     return result;
 }
 
-Value Value::Parse(double const& s) {
+Value Value::Parse(const double& s) {
     Value result;
     result._type = Value::Double;
 
     result._double = s;
+    return result;
+}
+
+Value Value::Parse(bool& s) {
+    Value result;
+    result._type = Value::Bool;
+
+    result._bool = s;
+    return result;
+}
+
+Value Value::Parse(const unsigned& s) {
+    Value result;
+    result._type = Value::Decimal;
+
+    result._num = s;
+    return result;
+}
+
+Value Value::Parse(const std::nullptr_t& s) {
+    Value result;
+    result._type = Value::Null;
+
+    result._null = s;
     return result;
 }
 
@@ -96,12 +132,21 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     std::string keyname;
     std::string keypath;
     std::string keyvalue;
-    bool Null() { return true; }
-    bool Bool(bool b) { return true; }
-    bool Int(int i) { return true; }
-    bool Uint(unsigned u) { return true; }
-    bool Int64(int64_t i) { return true; }
-    bool Uint64(uint64_t u) { return true; }
+    bool Null() {
+      mymap.push_back(std::make_pair(keyvalue, Value::Parse(nullptr))); 
+      return true; }
+    bool Bool(bool b) {
+      mymap.push_back(std::make_pair(keyvalue, Value::Parse(b)));
+      return true; }
+    bool Int(int i) { 
+      return true; }
+    bool Uint(unsigned u) {
+      mymap.push_back(std::make_pair(keyvalue, Value::Parse(u)));
+      return true; }
+    bool Int64(int64_t i) { 
+      return true; }
+    bool Uint64(uint64_t u) { 
+      return true; }
     bool Double(double d) { 
       mymap.push_back(std::make_pair(keyvalue, Value::Parse(d)));
       return true; }
@@ -152,9 +197,11 @@ int main(int argc, char* argv[])
     for (auto const& i: handler.mymap) {
         std::cout<<i.first<<": ";
         switch((i.second).type()) {
-        case Value::Int: std::cout << (i.second).asInt() << "\n"; break;
+        case Value::Decimal: std::cout << (i.second).asInt() << "\n"; break;
         case Value::Double: std::cout << (i.second).asDouble() << "\n"; break;
         case Value::String: std::cout << (i.second).asString() << "\n"; break;
+        case Value::Bool: std::cout << std::boolalpha << (i.second).asBool() << "\n"; break;
+        case Value::Null: std::cout << "null" << "\n"; break;
         default: break;
         }
     }
