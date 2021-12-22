@@ -11,7 +11,6 @@
 #include <vector>
 #include <iterator>
 #include <cstddef>
-#include <stack>
 
 using namespace rapidjson;
 
@@ -104,25 +103,28 @@ Value Value::Parse(const std::nullptr_t& s) {
     return result;
 }
 
-
-
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
     std::vector < std::pair < std::string, Value>>  mymap;
+    std::vector <char> vect;
     std::string keyname;
     std::string keyvalue;
-    bool arr{false};
-    std::stack<std::string> mystack;
+    bool valuep;
+    int start_counter{0};
+    std::vector<std::string> mystack;
     bool Null() {
-      mymap.push_back(std::make_pair(keyvalue, Value::Parse(nullptr))); 
+      mymap.push_back(std::make_pair(keyvalue, Value::Parse(nullptr)));
+      valuep = true; 
       return true; }
     bool Bool(bool b) {
       mymap.push_back(std::make_pair(keyvalue, Value::Parse(b)));
+      valuep = true;
       return true; }
     bool Int(int i) { 
       return true; }
     bool Uint(unsigned u) {
       mymap.push_back(std::make_pair(keyvalue, Value::Parse(u)));
+      valuep = true;
       return true; }
     bool Int64(int64_t i) { 
       return true; }
@@ -130,53 +132,64 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
       return true; }
     bool Double(double d) { 
       mymap.push_back(std::make_pair(keyvalue, Value::Parse(d)));
+      valuep = true;
       return true; }
     bool String(const char* str, SizeType length, bool copy) {
         mymap.push_back(std::make_pair(keyvalue, Value::Parse(str)));
+        valuep = true;
         return true;
     }
     
   bool StartObject() {
-    mystack.push(keyname);
+    if(!valuep) {
+      if (mystack.size() == 0 || mystack[mystack.size() - 1] != keyname) {
+        mystack.push_back(keyname);
+        start_counter = vect.size();
+      }
+    }
+    vect.push_back('{');
     return true; 
     }
 
   bool Key(const char* str, SizeType length, bool copy) {
-    std::stack<std::string> stack{mystack};
-    stack.push(str);
-    std::stack<std::string> reverse_stack;
-    while (!stack.empty())
-    {
-      std::cout<<' '<< stack.top();
-      stack.pop();
+    std::vector<std::string> stack{mystack};
+    stack.push_back(str);
+    valuep = false;
+    keyvalue = "";
+    
+    for (const auto& i: stack) {
+      keyvalue += i + '/';
     }
-   /* TO DO: Reverse the stack, Convert it into string and assign it to keyvalue
-      while (!reverse_stack.empty()) {
-        std::cout << ' ' << reverse_stack.top();
-        reverse_stack.pop();
-    }*/
-    std::cout<<"\n";
     keyname = str;
       
     return true;
     }
 
   bool EndObject(SizeType memberCount) {
-
-    std::stack<std::string> end_stack{mystack};
-    if (!arr) {
-    mystack.pop();
+    
+    vect.pop_back();
+    if (vect.size()  == start_counter) {
+    mystack.pop_back();
+    --start_counter;
   }
     return true;
     }
 
-  bool StartArray() { 
-    arr = true;
+  bool StartArray() {
+    if(!valuep) {
+    mystack.push_back(keyname);
+    start_counter = vect.size();
+  }
+    vect.push_back('[');
     return true; 
   }
 
   bool EndArray(SizeType elementCount) { 
-    arr = false;
+    vect.pop_back();
+    if (vect.size()  == start_counter) {
+    mystack.pop_back();
+    --start_counter;
+  }
     return true; 
   }
 };
@@ -201,4 +214,18 @@ int main(int argc, char* argv[])
   Reader reader;
   StringStream ss(data);
   reader.Parse(ss, handler);
+
+  std::cout<<"Key-value pairs are: \n";
+
+  for (auto const& i: handler.mymap) {
+    std::cout<<i.first<<": ";
+    switch((i.second).type()) {
+      case Value::Decimal: std::cout << (i.second).asInt() << "\n"; break;
+      case Value::Double: std::cout << (i.second).asDouble() << "\n"; break;
+      case Value::String: std::cout << (i.second).asString() << "\n"; break;
+      case Value::Bool: std::cout << std::boolalpha << (i.second).asBool() << "\n"; break;
+      case Value::Null: std::cout << "null" << "\n"; break;
+      default: break;
+    }
+  }
 }
