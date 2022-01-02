@@ -9,10 +9,32 @@
 #include <chrono>
 #include <fstream>
 #include <vector>
-#include <iterator>
-#include <cstddef>
+#include <unordered_map>
 
 using namespace rapidjson;
+
+class Timer
+{
+  using clock_type = std::chrono::steady_clock;
+  using second_type = std::chrono::duration<double, std::ratio<1> >;
+
+  std::chrono::time_point<clock_type> m_beg;
+
+public:
+  Timer() : m_beg { clock_type::now() }
+  {
+  }
+
+  void reset()
+  {
+    m_beg = clock_type::now();
+  }
+
+  double elapsed() const
+  {
+    return std::chrono::duration_cast<second_type>(clock_type::now() - m_beg).count();
+  }
+};
 
 class Value {
 public:
@@ -107,11 +129,12 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
     std::vector < std::pair < std::string, Value>>  mymap;
     std::vector <char> vect;
-    std::string keyname;
+    std::string keyname{"first"};
     std::string keyvalue;
-    bool valuep;
+    bool valuep{false};
     int start_counter{0};
     std::vector<std::string> mystack;
+    std::unordered_map<int, std::string> key_stack;
     bool Null() {
       mymap.push_back(std::make_pair(keyvalue, Value::Parse(nullptr)));
       valuep = true; 
@@ -143,8 +166,11 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
   bool StartObject() {
     if(!valuep) {
       if (mystack.size() == 0 || mystack[mystack.size() - 1] != keyname) {
+        if (keyname != "first") {
         mystack.push_back(keyname);
         start_counter = vect.size();
+        key_stack[start_counter] = keyname;
+      }
       }
     }
     vect.push_back('{');
@@ -168,26 +194,34 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
   bool EndObject(SizeType memberCount) {
     
     vect.pop_back();
-    if (vect.size()  == start_counter) {
+    if (mystack.size() > 0 && vect.size()  == start_counter) {
+    if(key_stack[vect.size()] == mystack.back()) {
     mystack.pop_back();
-    --start_counter;
+  }
+
+  --start_counter;
   }
     return true;
     }
 
   bool StartArray() {
     if(!valuep) {
-    mystack.push_back(keyname);
-    start_counter = vect.size();
-  }
+      if (mystack.size() == 0 || mystack[mystack.size() - 1] != keyname) {
+        mystack.push_back(keyname);
+        start_counter = vect.size();
+        key_stack[start_counter] = keyname;
+      }
+    }
     vect.push_back('[');
     return true; 
   }
 
   bool EndArray(SizeType elementCount) { 
     vect.pop_back();
-    if (vect.size()  == start_counter) {
-    mystack.pop_back();
+    if (mystack.size() > 0 && vect.size()  == start_counter) {
+      if(key_stack[vect.size()] == mystack.back()) {
+        mystack.pop_back();
+      }
     --start_counter;
   }
     return true; 
@@ -213,6 +247,7 @@ int main(int argc, char* argv[])
   MyHandler handler;
   Reader reader;
   StringStream ss(data);
+  Timer t;
   reader.Parse(ss, handler);
 
   std::cout<<"Key-value pairs are: \n";
@@ -228,4 +263,5 @@ int main(int argc, char* argv[])
       default: break;
     }
   }
+  std::cout<<"Time taken: " << t.elapsed() << " seconds\n";
 }
