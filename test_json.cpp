@@ -16,7 +16,7 @@
 #include <fstream>
 #include <vector>
 #include <unordered_map>
-
+#include <cstdlib>
 
 using namespace rapidjson;
 
@@ -42,11 +42,13 @@ std::string parse_json_dom(const char* file_name)
 
   if (document.HasParseError()) {
     std::cout<<"parsing error"<< std::endl;
+    return "parsing error";
   }
 
   if (!document.IsObject())
   {
     std::cout << " input is not an object " << std::endl;
+    return "object error";
   }
 
   dom_traverse_v2 td2;
@@ -58,36 +60,38 @@ std::string parse_json_dom(const char* file_name)
   return final_result;
 }
 
-std::string parse_json_sax(const char* file_name)
+std::string get_value_sax(const char* file_name, const char* key)
 {
   std::string stringFromStream;
   std::ifstream in;
   std::stringstream result;
   std::string final_result;
-  const char *jsonfile = file_name;;
-  in.open(jsonfile, std::ifstream::in);
-  if (in.is_open()) {
-    std::string line;
-    while (getline(in, line)) {
-        stringFromStream.append(line + "\n");
-    }
-    in.close();
-  }
+  const char *jsonfile = file_name;
 
-  const char* data = stringFromStream.c_str();
+  std::fstream sax_input_file(jsonfile, std::ios::in | std::ios::binary);
+  sax_input_file.seekg(0, std::ios::end);
+  // get file size
+  auto sz = sax_input_file.tellg();
+  // place the position at the begining
+  sax_input_file.seekg(0, std::ios::beg);
+  //read whole file content into allocated buffer
+  std::string file_content(sz, '\0');
+  sax_input_file.read((char*)file_content.data(),sz);
+
+  const char* data = file_content.c_str();
 
   MyHandler handler;
+  handler.search_key = key;
   Reader reader;
   StringStream ss(data);
   reader.Parse(ss, handler);
 
-  for (auto const& i: handler.mymap) {
-    result<<i.first<<": ";
-    switch((i.second).type()) {
-      case Valuesax::Decimal: result << (i.second).asInt() << "\n"; break;
-      case Valuesax::Double: result << (i.second).asDouble() << "\n"; break;
-      case Valuesax::String: result << (i.second).asString() << "\n"; break;
-      case Valuesax::Bool: result << std::boolalpha << (i.second).asBool() << "\n"; break;
+  for (auto const& i: handler.myvalue) {
+    switch(i.type()) {
+      case Valuesax::Decimal: result << i.asInt() << "\n"; break;
+      case Valuesax::Double: result << i.asDouble() << "\n"; break;
+      case Valuesax::String: result << i.asString() << "\n"; break;
+      case Valuesax::Bool: result << std::boolalpha << i.asBool() << "\n"; break;
       case Valuesax::Null: result << "null" << "\n"; break;
       default: break;
     }
@@ -96,13 +100,43 @@ std::string parse_json_sax(const char* file_name)
   return final_result;
 }
 
+std::string get_next_key_sax(const char* file_name, const char* key)
+{
+  std::string stringFromStream;
+  std::ifstream in;
+  std::stringstream result;
+  std::string final_result;
+  const char *jsonfile = file_name;
+
+  std::fstream sax_input_file(jsonfile, std::ios::in | std::ios::binary);
+  sax_input_file.seekg(0, std::ios::end);
+  // get file size
+  auto sz = sax_input_file.tellg();
+  // place the position at the begining
+  sax_input_file.seekg(0, std::ios::beg);
+  //read whole file content into allocated buffer
+  std::string file_content(sz, '\0');
+  sax_input_file.read((char*)file_content.data(),sz);
+
+  const char* data = file_content.c_str();
+
+  MyHandler handler;
+  handler.search_prev_key = key;
+  Reader reader;
+  StringStream ss(data);
+  reader.Parse(ss, handler);
+  
+  final_result = handler.my_prev_key;
+  return final_result;
+}
+/*
 TEST(Jsonparse, json)
 {
-  std::string sax_result = parse_json_sax("sample4.json");
+  
 
-  std::string dom_result = parse_json_dom("sample4.json");
+  //std::string dom_result = parse_json_dom("sample4.json");
 
-  ASSERT_EQ(dom_result, sax_result);
+  //ASSERT_EQ(dom_result, sax_result);
 }
 
 TEST(Jsonparse, json1)
@@ -148,11 +182,19 @@ TEST(Jsonparse, json5)
   std::string dom_result_5 = parse_json_dom("sample13.json");
 
   ASSERT_EQ(dom_result_5, sax_result_5);
-}
+}*/
 
 int main(int argc, char* argv[])
-{
+{/*
   testing::InitGoogleTest(&argc, argv);
 
-  return RUN_ALL_TESTS();
+  return RUN_ALL_TESTS();*/
+
+  std::string sax_result = get_value_sax("sample4.json", "address/city/");
+
+  std::cout<<sax_result;
+
+  std::string sax_next_key = get_next_key_sax("sample4.json", "address/city/");
+
+  std::cout<<sax_next_key;
 }

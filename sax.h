@@ -24,45 +24,69 @@ public:
         Null
     };
 
-    static Valuesax Parse(std::string const& s) {
+    Valuesax Parse(std::string const& s) {
     	Valuesax result;
     	result._type = Valuesax::String;
 
     	result._string = s;
     	return result;
-	}
+	  }
 
-	static Valuesax Parse(const double& s) {
+	  Valuesax Parse(const double& s) {
     	Valuesax result;
     	result._type = Valuesax::Double;
 
     	result._double = s;
     	return result;
-	}
+	  }
 
-	static Valuesax Parse(bool& s) {
+	  Valuesax Parse(bool& s) {
     	Valuesax result;
     	result._type = Valuesax::Bool;
 
     	result._bool = s;
     	return result;
-	}
+	  }
 
-	static Valuesax Parse(const unsigned& s) {
+    Valuesax Parse(const int& s) {
     	Valuesax result;
     	result._type = Valuesax::Decimal;
 
     	result._num = s;
     	return result;
-	}
+	  }
 
-	static Valuesax Parse(const std::nullptr_t& s) {
+	  Valuesax Parse(const unsigned& s) {
+    	Valuesax result;
+    	result._type = Valuesax::Decimal;
+
+    	result._num = s;
+    	return result;
+    }
+
+    Valuesax Parse(const int64_t& s) {
+    	Valuesax result;
+    	result._type = Valuesax::Decimal;
+
+    	result._num = s;
+    	return result;
+	  }
+
+    Valuesax Parse(const uint64_t& s) {
+    	Valuesax result;
+    	result._type = Valuesax::Decimal;
+
+    	result._num = s;
+    	return result;
+	  }
+
+	  Valuesax Parse(const std::nullptr_t& s) {
     	Valuesax result;
     	result._type = Valuesax::Null;
 
     	result._null = s;
     	return result;
-	}
+	  }
 
     Valuesax(): _type(Decimal), _num(0), _double(0.0), _bool(false) {}
 
@@ -99,38 +123,62 @@ private:
 
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     public:
-    std::vector < std::pair < std::string, Valuesax>>  mymap;
+    Valuesax value;
+    std::vector <Valuesax> myvalue;
+    std::string my_prev_key{};
+    std::string search_key;
+    std::string search_prev_key{};
     std::vector <char> vect;
     std::string keyname{};
     std::string keyvalue;
+    std::string prev_key{};
     bool valuep{false};
     int start_counter{0};
     std::vector<std::string> mystack;
     std::unordered_map<int, std::string> key_stack;
     bool Null() {
-      mymap.push_back(std::make_pair(keyvalue, Valuesax::Parse(nullptr)));
+      if (keyvalue == search_key) {
+          myvalue.push_back(value.Parse(nullptr));
+        }
       valuep = true; 
       return true; }
     bool Bool(bool b) {
-      mymap.push_back(std::make_pair(keyvalue, Valuesax::Parse(b)));
+      if (keyvalue == search_key) {
+          myvalue.push_back(value.Parse(b));
+        }
       valuep = true;
       return true; }
     bool Int(int i) { 
+      if (keyvalue == search_key) {
+          myvalue.push_back(value.Parse(i));
+        }
       return true; }
     bool Uint(unsigned u) {
-      mymap.push_back(std::make_pair(keyvalue, Valuesax::Parse(u)));
+      if (keyvalue == search_key) {
+          myvalue.push_back(value.Parse(u));
+        }
       valuep = true;
       return true; }
     bool Int64(int64_t i) { 
+      if (keyvalue == search_key) {
+          myvalue.push_back(value.Parse(i));
+        }
       return true; }
     bool Uint64(uint64_t u) { 
+      if (keyvalue == search_key) {
+          myvalue.push_back(value.Parse(u));
+        }
       return true; }
     bool Double(double d) { 
-      mymap.push_back(std::make_pair(keyvalue, Valuesax::Parse(d)));
+      if (keyvalue == search_key) {
+          myvalue.push_back(value.Parse(d));
+        }
       valuep = true;
       return true; }
     bool String(const char* str, SizeType length, bool copy) {
-        mymap.push_back(std::make_pair(keyvalue, Valuesax::Parse(str)));
+        if (keyvalue == search_key) {
+          myvalue.push_back(value.Parse(str));
+        }
         valuep = true;
         return true;
     }
@@ -150,6 +198,7 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     }
 
   bool Key(const char* str, SizeType length, bool copy) {
+    prev_key = keyvalue;
     std::vector<std::string> stack{mystack};
     stack.push_back(str);
     valuep = false;
@@ -159,7 +208,9 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
       keyvalue += i + '/';
     }
     keyname = str;
-      
+    if (search_prev_key == prev_key) {
+      my_prev_key = keyvalue;
+    }
     return true;
     }
 
