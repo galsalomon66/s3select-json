@@ -43,6 +43,7 @@ std::string parse_json_dom(const char* file_name)
 
   if (document.HasParseError()) {
     std::cout<<"parsing error"<< std::endl;
+    return std::string("parsing error");
   }
 
   if (!document.IsObject())
@@ -117,28 +118,44 @@ TEST(Jsonparse, json)
 
   ASSERT_EQ(dom_result_2, sax_result_2);
 
+try{
   std::string sax_result_3 = parse_json_sax("sample8.json");
 
   std::string dom_result_3 = parse_json_dom("sample8.json");
 
   ASSERT_EQ(dom_result_3, sax_result_3);
+} catch ( std::exception & e )
+{
+  std::cout << "failure : " << e.what() << std::endl;
+}
+
 
   std::string sax_result_4 = parse_json_sax("sample9.json");
 
   std::string dom_result_4 = parse_json_dom("sample9.json");
 
   ASSERT_EQ(dom_result_4, sax_result_4);
-
   std::string sax_result_5 = parse_json_sax("sample13.json");
 
   std::string dom_result_5 = parse_json_dom("sample13.json");
 
   ASSERT_EQ(dom_result_5, sax_result_5);
+
 }
 
 int main(int argc, char* argv[])
 {
+
+  if(argc<1) return -1;
+
+  std::cout << parse_json_sax( argv[1] ) << std::endl;
+
+  return 0;
+
   testing::InitGoogleTest(&argc, argv);
 
   return RUN_ALL_TESTS();
+  std::cout << "file: " << argv[1] << std::endl;
+  std::string dom_result = parse_json_dom( argv[1] );
+  std::cout << dom_result << std::endl;
 }
