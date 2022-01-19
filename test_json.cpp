@@ -81,12 +81,12 @@ std::string get_value_sax(const char* file_name, const char* key)
   const char* data = file_content.c_str();
 
   MyHandler handler;
-  handler.search_key = key;
+  handler.set_search_key(key);
   Reader reader;
   StringStream ss(data);
   reader.Parse(ss, handler);
 
-  for (auto const& i: handler.myvalue) {
+  for (const auto& i : handler.get_myvalue()) {
     switch(i.type()) {
       case Valuesax::Decimal: result << i.asInt() << "\n"; break;
       case Valuesax::Double: result << i.asDouble() << "\n"; break;
@@ -121,12 +121,12 @@ std::string get_next_key_sax(const char* file_name, const char* key)
   const char* data = file_content.c_str();
 
   MyHandler handler;
-  handler.search_prev_key = key;
+  handler.set_search_prev_key(key);
   Reader reader;
   StringStream ss(data);
   reader.Parse(ss, handler);
   
-  final_result = handler.my_prev_key;
+  final_result = handler.get_my_prev_key();
   return final_result;
 }
 /*

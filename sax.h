@@ -122,7 +122,6 @@ private:
 };
 
 class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
-    public:
     Valuesax value;
     std::vector <Valuesax> myvalue;
     std::string my_prev_key{};
@@ -136,6 +135,20 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     int start_counter{0};
     std::vector<std::string> mystack;
     std::unordered_map<int, std::string> key_stack;
+    public:
+    void set_search_key(std::string key) {
+      search_key = key;
+    }
+    void set_search_prev_key(std::string key) {
+      search_prev_key = key;
+    }
+    std::string get_my_prev_key()
+    {
+      return my_prev_key;
+    }
+    std::vector<Valuesax> get_myvalue() {
+      return myvalue;
+    }
     bool Null() {
       if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(nullptr));
