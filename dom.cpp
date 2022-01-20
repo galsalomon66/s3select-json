@@ -6,9 +6,7 @@
 #include <fstream>
 #include <sstream>
 
-using namespace rapidjson;
-
-void dom_traverse_v2::print(const Value &v, std::string key_name)
+void dom_traverse_v2::print(const rapidjson::Value &v, std::string key_name)
 {
   ss << key_name << ": ";
 
@@ -42,13 +40,13 @@ void dom_traverse_v2::print(const Value &v, std::string key_name)
     }
 }
 
-void dom_traverse_v2::traverse(Document &d)
+void dom_traverse_v2::traverse(rapidjson::Document &d)
 {
   std::string path="";
 
-  for (Value::ConstMemberIterator itr = d.MemberBegin(); itr != d.MemberEnd(); ++itr)
+  for (rapidjson::Value::ConstMemberIterator itr = d.MemberBegin(); itr != d.MemberEnd(); ++itr)
   {
-    const Value &v = itr->value;
+    const rapidjson::Value &v = itr->value;
 
     if(v.IsArray())
     {
@@ -78,13 +76,13 @@ void dom_traverse_v2::traverse(Document &d)
   }
 }
 
-void dom_traverse_v2::traverse_array(const Value &v,std::string path)
+void dom_traverse_v2::traverse_array(const rapidjson::Value &v,std::string path)
 {
   std::string object_key = path;
   
-  for (Value::ConstValueIterator itr = v.Begin(); itr != v.End(); ++itr)
+  for (rapidjson::Value::ConstValueIterator itr = v.Begin(); itr != v.End(); ++itr)
   {
-    const Value& array_item = *itr;
+    const rapidjson::Value& array_item = *itr;
     if(array_item.IsArray())
     {
       traverse_array(array_item,object_key);
@@ -100,13 +98,13 @@ void dom_traverse_v2::traverse_array(const Value &v,std::string path)
   }
 }
 
-void dom_traverse_v2::traverse_object(const Value &v,std::string path)
+void dom_traverse_v2::traverse_object(const rapidjson::Value &v,std::string path)
 {
   std::string object_key = path;
 
-  for (Value::ConstMemberIterator itr = v.MemberBegin(); itr != v.MemberEnd(); ++itr)
+  for (rapidjson::Value::ConstMemberIterator itr = v.MemberBegin(); itr != v.MemberEnd(); ++itr)
   {
-    const Value& v_itr = itr->value;
+    const rapidjson::Value& v_itr = itr->value;
 
     if (itr->value.IsObject())
     {

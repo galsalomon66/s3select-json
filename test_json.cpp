@@ -7,18 +7,16 @@
 #include "rapidjson/document.h"
 #include "rapidjson/pointer.h"
 #include "rapidjson/stringbuffer.h"
+#include "rapidjson/istreamwrapper.h"
+
 #include "dom.h"
 #include "sax.h"
 #include <gtest/gtest.h>
 #include <cassert>
 #include <sstream>
-#include <chrono>
 #include <fstream>
 #include <vector>
 #include <unordered_map>
-#include <cstdlib>
-
-using namespace rapidjson;
 
 std::string parse_json_dom(const char* file_name)
 {
@@ -37,7 +35,7 @@ std::string parse_json_dom(const char* file_name)
   std::string file_content(sz, '\0');
   dom_input_file.read((char*)file_content.data(),sz);
 
-  Document document;
+  rapidjson::Document document;
   document.Parse(file_content.data());
 
   if (document.HasParseError()) {
@@ -66,27 +64,27 @@ std::string get_value_sax(const char* file_name, const char* key)
   std::ifstream in;
   std::stringstream result;
   std::string final_result;
-  const char *jsonfile = file_name;
-
-  std::fstream sax_input_file(jsonfile, std::ios::in | std::ios::binary);
-  sax_input_file.seekg(0, std::ios::end);
-  // get file size
-  auto sz = sax_input_file.tellg();
-  // place the position at the begining
-  sax_input_file.seekg(0, std::ios::beg);
-  //read whole file content into allocated buffer
-  std::string file_content(sz, '\0');
-  sax_input_file.read((char*)file_content.data(),sz);
-
-  const char* data = file_content.c_str();
+  std::ifstream ifs(file_name);
+  rapidjson::IStreamWrapper isw(ifs);
 
   MyHandler handler;
   handler.set_search_key(key);
-  Reader reader;
-  StringStream ss(data);
-  reader.Parse(ss, handler);
+  rapidjson::Reader reader;
 
+  reader.IterativeParseInit();
+  while (!reader.IterativeParseComplete()) {
+    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(isw, handler);
+    if(reader.HasParseError())  {
+      rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
+      size_t o = reader.GetErrorOffset();
+      std::cout << "PARSE ERROR " << c << " " << o << std::endl;
+      break;
+      }
+    }
+  
+  std::cout<<"size is "<<handler.get_myvalue().size()<<"\n";
   for (const auto& i : handler.get_myvalue()) {
+    std::cout<<"type is "<<i.type()<<"\n";
     switch(i.type()) {
       case Valuesax::Decimal: result << i.asInt() << "\n"; break;
       case Valuesax::Double: result << i.asDouble() << "\n"; break;
@@ -97,6 +95,7 @@ std::string get_value_sax(const char* file_name, const char* key)
     }
   }
   final_result = result.str();
+  std::cout<<"final result is "<<final_result;
   return final_result;
 }
 
@@ -106,25 +105,24 @@ std::string get_next_key_sax(const char* file_name, const char* key)
   std::ifstream in;
   std::stringstream result;
   std::string final_result;
-  const char *jsonfile = file_name;
-
-  std::fstream sax_input_file(jsonfile, std::ios::in | std::ios::binary);
-  sax_input_file.seekg(0, std::ios::end);
-  // get file size
-  auto sz = sax_input_file.tellg();
-  // place the position at the begining
-  sax_input_file.seekg(0, std::ios::beg);
-  //read whole file content into allocated buffer
-  std::string file_content(sz, '\0');
-  sax_input_file.read((char*)file_content.data(),sz);
-
-  const char* data = file_content.c_str();
+  
+  std::ifstream ifs(file_name);
+  rapidjson::IStreamWrapper isw(ifs);
 
   MyHandler handler;
   handler.set_search_prev_key(key);
-  Reader reader;
-  StringStream ss(data);
-  reader.Parse(ss, handler);
+  rapidjson::Reader reader{};
+
+  reader.IterativeParseInit();
+  while (!reader.IterativeParseComplete()) {
+    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(isw, handler);
+    if(reader.HasParseError())  {
+      rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
+      size_t o = reader.GetErrorOffset();
+      std::cout << "PARSE ERROR " << c << " " << o << std::endl;
+      break;
+      }
+    }
   
   final_result = handler.get_my_prev_key();
   return final_result;

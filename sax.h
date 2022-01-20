@@ -12,8 +12,6 @@
 #include <vector>
 #include <unordered_map>
 
-using namespace rapidjson;
-
 class Valuesax {
 public:
     enum Type {
@@ -121,7 +119,7 @@ private:
     std::nullptr_t _null;
 };
 
-class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
+class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandler> {
     Valuesax value;
     std::vector <Valuesax> myvalue;
     std::string my_prev_key{};
@@ -131,11 +129,12 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     std::string keyname{};
     std::string keyvalue;
     std::string prev_key{};
-    bool valuep{false};
-    int start_counter{0};
+    bool valuep{};
+    int start_counter{};
     std::vector<std::string> mystack;
     std::unordered_map<int, std::string> key_stack;
     public:
+    MyHandler() : valuep{false}, start_counter{0} {}
     void set_search_key(std::string key) {
       search_key = key;
     }
@@ -188,7 +187,7 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
         }
       valuep = true;
       return true; }
-    bool String(const char* str, SizeType length, bool copy) {
+    bool String(const char* str, rapidjson::SizeType length, bool copy) {
         if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(str));
         }
@@ -210,7 +209,7 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     return true; 
     }
 
-  bool Key(const char* str, SizeType length, bool copy) {
+  bool Key(const char* str, rapidjson::SizeType length, bool copy) {
     prev_key = keyvalue;
     std::vector<std::string> stack{mystack};
     stack.push_back(str);
@@ -227,8 +226,7 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     return true;
     }
 
-  bool EndObject(SizeType memberCount) {
-    
+  bool EndObject(rapidjson::SizeType memberCount) {
     vect.pop_back();
     if (mystack.size() > 0 && vect.size()  == start_counter) {
     if(key_stack[vect.size()] == mystack.back()) {
@@ -252,7 +250,7 @@ class MyHandler : public BaseReaderHandler<UTF8<>, MyHandler> {
     return true; 
   }
 
-  bool EndArray(SizeType elementCount) { 
+  bool EndArray(rapidjson::SizeType elementCount) { 
     vect.pop_back();
     if (mystack.size() > 0 && vect.size()  == start_counter) {
       if(key_stack[vect.size()] == mystack.back()) {
