@@ -7,7 +7,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/pointer.h"
 #include "rapidjson/stringbuffer.h"
-#include "rapidjson/istreamwrapper.h"
+#include "rapidjson/memorystream.h"
 
 #include "dom.h"
 #include "sax.h"
@@ -64,16 +64,16 @@ std::string get_value_sax(const char* file_name, const char* key)
   std::ifstream in;
   std::stringstream result;
   std::string final_result;
-  std::ifstream ifs(file_name);
-  rapidjson::IStreamWrapper isw(ifs);
+
+  rapidjson::MemoryStream buffer(file_name, 1024);
 
   MyHandler handler;
   handler.set_search_key(key);
-  rapidjson::Reader reader;
+  rapidjson::Reader reader{};
 
   reader.IterativeParseInit();
   while (!reader.IterativeParseComplete()) {
-    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(isw, handler);
+    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
     if(reader.HasParseError())  {
       rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
       size_t o = reader.GetErrorOffset();
@@ -82,9 +82,7 @@ std::string get_value_sax(const char* file_name, const char* key)
       }
     }
   
-  std::cout<<"size is "<<handler.get_myvalue().size()<<"\n";
   for (const auto& i : handler.get_myvalue()) {
-    std::cout<<"type is "<<i.type()<<"\n";
     switch(i.type()) {
       case Valuesax::Decimal: result << i.asInt() << "\n"; break;
       case Valuesax::Double: result << i.asDouble() << "\n"; break;
@@ -95,7 +93,6 @@ std::string get_value_sax(const char* file_name, const char* key)
     }
   }
   final_result = result.str();
-  std::cout<<"final result is "<<final_result;
   return final_result;
 }
 
@@ -106,8 +103,7 @@ std::string get_next_key_sax(const char* file_name, const char* key)
   std::stringstream result;
   std::string final_result;
   
-  std::ifstream ifs(file_name);
-  rapidjson::IStreamWrapper isw(ifs);
+  rapidjson::MemoryStream buffer(file_name, 1024);
 
   MyHandler handler;
   handler.set_search_prev_key(key);
@@ -115,7 +111,7 @@ std::string get_next_key_sax(const char* file_name, const char* key)
 
   reader.IterativeParseInit();
   while (!reader.IterativeParseComplete()) {
-    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(isw, handler);
+    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
     if(reader.HasParseError())  {
       rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
       size_t o = reader.GetErrorOffset();
@@ -188,11 +184,34 @@ int main(int argc, char* argv[])
 
   return RUN_ALL_TESTS();*/
 
-  std::string sax_result = get_value_sax("sample4.json", "address/city/");
+  const char* json2 = "{ \
+  \"firstName\": \"Joe\", \
+  \"lastName\": \"Jackson\", \
+  \"gender\": \"male\", \
+  \"age\": \"twenty\", \
+  \"address\": { \
+  \"streetAddress\": \"101\", \
+  \"city\": \"San Diego\", \
+  \"state\": \"CA\" \
+  }, \
+  \"phoneNumbers\": [ \
+  { \"type\": \"home1\", \"number\": \"7349282_1\" }, \
+  { \"type\": \"home2\", \"number\": \"7349282_2\" }, \
+  { \"type\": \"home3\", \"number\": \"734928_3\" }, \
+  { \"type\": \"home4\", \"number\": \"734928_4\" }, \
+  { \"type\": \"home5\", \"number\": \"734928_5\" }, \
+  { \"type\": \"home6\", \"number\": \"734928_6\" }, \
+  { \"type\": \"home7\", \"number\": \"734928_7\" } \
+  ] \
+  }";
+
+  const char* key = "address/streetAddress/";
+
+  std::string sax_result = get_value_sax(json2, key);
 
   std::cout<<sax_result;
 
-  std::string sax_next_key = get_next_key_sax("sample4.json", "address/city/");
+  std::string sax_next_key = get_next_key_sax(json2, key);
 
   std::cout<<sax_next_key;
 }
