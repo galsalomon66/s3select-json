@@ -58,14 +58,14 @@ std::string parse_json_dom(const char* file_name)
   return final_result;
 }
 
-std::string get_value_sax(const char* file_name, const char* key)
+std::string get_value_sax(const char* buff, const char* key, size_t size)
 {
   std::string stringFromStream;
   std::ifstream in;
   std::stringstream result;
   std::string final_result;
 
-  rapidjson::MemoryStream buffer(file_name, 1024);
+  rapidjson::MemoryStream buffer(buff, size);
 
   MyHandler handler;
   handler.set_search_key(key);
@@ -96,14 +96,14 @@ std::string get_value_sax(const char* file_name, const char* key)
   return final_result;
 }
 
-std::string get_next_key_sax(const char* file_name, const char* key)
+std::string get_next_key_sax(const char* buff, const char* key, size_t size)
 {
   std::string stringFromStream;
   std::ifstream in;
   std::stringstream result;
   std::string final_result;
   
-  rapidjson::MemoryStream buffer(file_name, 1024);
+  rapidjson::MemoryStream buffer(buff, size);
 
   MyHandler handler;
   handler.set_search_prev_key(key);
@@ -184,34 +184,33 @@ int main(int argc, char* argv[])
 
   return RUN_ALL_TESTS();*/
 
-  const char* json2 = "{ \
-  \"firstName\": \"Joe\", \
-  \"lastName\": \"Jackson\", \
-  \"gender\": \"male\", \
-  \"age\": \"twenty\", \
-  \"address\": { \
-  \"streetAddress\": \"101\", \
-  \"city\": \"San Diego\", \
-  \"state\": \"CA\" \
-  }, \
-  \"phoneNumbers\": [ \
-  { \"type\": \"home1\", \"number\": \"7349282_1\" }, \
-  { \"type\": \"home2\", \"number\": \"7349282_2\" }, \
-  { \"type\": \"home3\", \"number\": \"734928_3\" }, \
-  { \"type\": \"home4\", \"number\": \"734928_4\" }, \
-  { \"type\": \"home5\", \"number\": \"734928_5\" }, \
-  { \"type\": \"home6\", \"number\": \"734928_6\" }, \
-  { \"type\": \"home7\", \"number\": \"734928_7\" } \
-  ] \
-  }";
+  std::ifstream input_file_stream;
+
+  try {
+    input_file_stream = std::ifstream("sample2.json", std::ios::in | std::ios::binary);
+  }
+  catch( ... )  {
+  std::cout << "failed to open file " << std::endl;  
+  exit(-1);
+  }
+
+  constexpr double buffer_size {4*1024*1024};
+  char* buff = (char*)malloc(buffer_size);
 
   const char* key = "address/streetAddress/";
 
-  std::string sax_result = get_value_sax(json2, key);
+  while(1) {
+  size_t size = input_file_stream.readsome(buff, buffer_size);
 
-  std::cout<<sax_result;
+  if(!size || input_file_stream.eof()){
+      break;
+  }
+  std::string sax_result = get_value_sax(buff, key, size);
 
-  std::string sax_next_key = get_next_key_sax(json2, key);
+  std::cout<<sax_result<<"\n";
+
+  std::string sax_next_key = get_next_key_sax(buff, key, size);
 
   std::cout<<sax_next_key;
+  }  
 }
