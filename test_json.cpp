@@ -17,6 +17,7 @@
 #include <fstream>
 #include <vector>
 #include <unordered_map>
+#include <filesystem>
 
 std::string parse_json_dom(const char* file_name)
 {
@@ -58,10 +59,26 @@ std::string parse_json_dom(const char* file_name)
   return final_result;
 }
 
+bool is_parse_error(const char* buff, const char* key, size_t size)
+{
+	rapidjson::MemoryStream buffer(buff, size);
+
+  	MyHandler handler;
+  	handler.set_search_key(key);
+  	rapidjson::Reader reader{};
+
+  	reader.IterativeParseInit();
+  	while (!reader.IterativeParseComplete()) {
+    	reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
+    	if(reader.HasParseError()) {
+    		return true;
+    	} 
+    }
+    return false;
+}
+
 std::string get_value_sax(const char* buff, const char* key, size_t size)
 {
-  std::string stringFromStream;
-  std::ifstream in;
   std::stringstream result;
   std::string final_result;
 
@@ -98,8 +115,6 @@ std::string get_value_sax(const char* buff, const char* key, size_t size)
 
 std::string get_next_key_sax(const char* buff, const char* key, size_t size)
 {
-  std::string stringFromStream;
-  std::ifstream in;
   std::stringstream result;
   std::string final_result;
   
@@ -185,6 +200,8 @@ int main(int argc, char* argv[])
   return RUN_ALL_TESTS();*/
 
   std::ifstream input_file_stream;
+  size_t size;
+  size_t m_processed_bytes;
 
   try {
     input_file_stream = std::ifstream("sample2.json", std::ios::in | std::ios::binary);
@@ -194,23 +211,72 @@ int main(int argc, char* argv[])
   exit(-1);
   }
 
-  constexpr double buffer_size {4*1024*1024};
+  constexpr double buffer_size {100};
+  std::string m_last_line;
+  bool m_previous_line;
+  std::string merge_line;
   char* buff = (char*)malloc(buffer_size);
 
   const char* key = "address/streetAddress/";
 
+  auto file_sz = std::filesystem::file_size("sample2.json");
+
   while(1) {
-  size_t size = input_file_stream.readsome(buff, buffer_size);
+  size = input_file_stream.readsome(buff, buffer_size);
 
   if(!size || input_file_stream.eof()){
       break;
   }
+
+  std::string tmp_buff;
+  m_processed_bytes += size;
+  
+  if (m_previous_line)
+    {
+      //if previous broken line exist , merge it to current chunk
+      char* p_obj_chunk = (char*)buff;
+      while (is_parse_error(buff, key, size) && p_obj_chunk<(buff+size))
+      {
+        p_obj_chunk++;
+      }
+
+      tmp_buff.assign((char*)buff, (char*)buff + (p_obj_chunk - buff));
+      
+      merge_line += m_last_line + tmp_buff;
+      m_previous_line = false;
+
+      if (!is_parse_error(merge_line.c_str(), key, merge_line.length())) {
+      std::string sax_result = get_value_sax(merge_line.c_str(), key, merge_line.length());
+      std::cout<<sax_result;
+      merge_line = "";
+    }
+  }
+
+  if (is_parse_error(buff, key, size))
+    {
+      //in case of "broken" last line
+      char* p_obj_chunk = (char*)&(buff[size - 1]);
+      while (is_parse_error(p_obj_chunk, key, size) && p_obj_chunk>buff)
+      {
+        p_obj_chunk--;  //scan until end-of previous line in chunk
+      }
+      u_int32_t skip_last_bytes = (&(buff[size - 1]) - p_obj_chunk);
+      m_last_line.assign(p_obj_chunk, p_obj_chunk + 1 + skip_last_bytes); //save it for next chunk
+
+      m_previous_line = true;//it means to skip last line
+    }
+
+/*
+  if (is_parse_error(buff, key, size)) {
+  	std::cout<<"parse error\n";
+  } else {
   std::string sax_result = get_value_sax(buff, key, size);
 
-  std::cout<<sax_result<<"\n";
+  std::cout<<sax_result;
 
   std::string sax_next_key = get_next_key_sax(buff, key, size);
 
   std::cout<<sax_next_key;
+}*/
   }  
 }
