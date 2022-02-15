@@ -120,6 +120,7 @@ private:
 };
 
 class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandler> {
+    std::vector < std::pair < std::string, Valuesax>> mymap;
     Valuesax value;
     std::vector <Valuesax> myvalue;
     std::string my_prev_key{};
@@ -148,47 +149,58 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
     std::vector<Valuesax> get_myvalue() {
       return myvalue;
     }
+    std::vector < std::pair < std::string, Valuesax>> get_mykeyvalue() {
+      return mymap;
+    }
     bool Null() {
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(nullptr)));
       if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(nullptr));
         }
       valuep = true; 
       return true; }
     bool Bool(bool b) {
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(b)));
       if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(b));
         }
       valuep = true;
       return true; }
     bool Int(int i) { 
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(i)));
       if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(i));
         }
       return true; }
     bool Uint(unsigned u) {
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(u)));
       if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(u));
         }
       valuep = true;
       return true; }
     bool Int64(int64_t i) { 
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(i)));
       if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(i));
         }
       return true; }
     bool Uint64(uint64_t u) { 
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(u)));
       if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(u));
         }
       return true; }
     bool Double(double d) { 
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(d)));
       if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(d));
         }
       valuep = true;
       return true; }
     bool String(const char* str, rapidjson::SizeType length, bool copy) {
-        if (keyvalue == search_key) {
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(str)));
+      if (keyvalue == search_key) {
           myvalue.push_back(value.Parse(str));
         }
         valuep = true;
@@ -217,7 +229,9 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
     keyvalue = "";
     
     for (const auto& i: stack) {
+      if (i != "") {
       keyvalue += i + '/';
+      }
     }
     keyname = str;
     if (search_prev_key == prev_key) {

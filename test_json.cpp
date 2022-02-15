@@ -59,6 +59,43 @@ std::string parse_json_dom(const char* file_name)
   return final_result;
 }
 
+std::string parse_json_sax(const char* buff, const char* key, size_t size)
+{
+  std::stringstream result;
+  std::string final_result;
+
+  rapidjson::MemoryStream buffer(buff, size);
+
+  MyHandler handler;
+  handler.set_search_key(key);
+  rapidjson::Reader reader{};
+
+  reader.IterativeParseInit();
+  while (!reader.IterativeParseComplete()) {
+    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
+    if(reader.HasParseError())  {
+      rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
+      size_t o = reader.GetErrorOffset();
+      std::cout << "PARSE ERROR " << c << " " << o << std::endl;
+      break;
+      }
+    }
+  
+  for (const auto& i : handler.get_mykeyvalue()) {
+    result<<i.first<<": ";
+    switch((i.second).type()) {
+      case Valuesax::Decimal: result << (i.second).asInt() << "\n"; break;
+      case Valuesax::Double: result << (i.second).asDouble() << "\n"; break;
+      case Valuesax::String: result << (i.second).asString() << "\n"; break;
+      case Valuesax::Bool: result << std::boolalpha << (i.second).asBool() << "\n"; break;
+      case Valuesax::Null: result << "null" << "\n"; break;
+      default: break;
+    }
+  }
+  final_result = result.str();
+  return final_result;
+}
+
 std::string get_value_sax(const char* buff, const char* key, size_t size)
 {
   std::stringstream result;
@@ -186,7 +223,7 @@ int main(int argc, char* argv[])
   size_t m_processed_bytes;
 
   try {
-    input_file_stream = std::ifstream("sample9.json", std::ios::in | std::ios::binary);
+    input_file_stream = std::ifstream("sample2.json", std::ios::in | std::ios::binary);
   }
   catch( ... )  {
   std::cout << "failed to open file " << std::endl;  
@@ -200,9 +237,9 @@ int main(int argc, char* argv[])
   size_t merge_size;
   char* buff = (char*)malloc(buffer_size);
 
-  const char* key = "level1/level2/level3/level4/";
+  const char* key = "address/streetAddress/";
 
-  auto file_sz = std::filesystem::file_size("sample9.json");
+  auto file_sz = std::filesystem::file_size("sample2.json");
 
   std::vector <char> stack;
 
@@ -244,7 +281,9 @@ int main(int argc, char* argv[])
       std::string sax_result = get_value_sax(merge_line.c_str(), key, merge_size);
       std::cout<<sax_result;
       std::string sax_next_key = get_next_key_sax(merge_line.c_str(), key, merge_size);
-      std::cout<<sax_next_key;
+      std::cout<<sax_next_key<<"\n";
+      std::string sax_result_4 = parse_json_sax(merge_line.c_str(), key, merge_size);
+      std::cout<<sax_result_4;
       if (tmp_buff.size() + 1 == size) {
         break;
       } else {
