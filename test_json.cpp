@@ -222,8 +222,10 @@ int main(int argc, char* argv[])
   size_t size;
   size_t m_processed_bytes;
 
+  char* file_name = argv[1];
+
   try {
-    input_file_stream = std::ifstream("sample40.json", std::ios::in | std::ios::binary); // 1 GB file
+    input_file_stream = std::ifstream(file_name, std::ios::in | std::ios::binary);
   }
   catch( ... )  {
   std::cout << "failed to open file " << std::endl;  
@@ -239,12 +241,13 @@ int main(int argc, char* argv[])
 
   const char* key = "Source Data/key=4lwicsuorhkvkoqzlgfcig/";
 
-  auto file_sz = std::filesystem::file_size("sample40.json");
+  auto file_sz = std::filesystem::file_size(file_name);
 
   std::vector <char> stack;
 
   while(1) {
   size = input_file_stream.readsome(buff, buffer_size);
+  std::cout << "@@read from file" << std::endl;
 
   if(!size || input_file_stream.eof()){
       break;
@@ -275,6 +278,7 @@ int main(int argc, char* argv[])
     p_obj_chunk++;
     len = p_obj_chunk - prev_chunk;
     if(stack.empty()) {
+      std::cout << "@@empty stack" << std::endl;
       tmp_buff.assign((char*)buff, start_index, len);
       merge_line += tmp_buff;
       merge_size = merge_line.size();
@@ -283,6 +287,7 @@ int main(int argc, char* argv[])
       std::string sax_next_key = get_next_key_sax(merge_line.c_str(), key, merge_size);
       std::cout<<sax_next_key<<"\n";
       std::string sax_result_4 = parse_json_sax(merge_line.c_str(), key, merge_size);
+      std::cout << "@@ merge line size = " << merge_line.size() << std::endl;
       std::cout<<sax_result_4;
       if (tmp_buff.size() + 1 == size || merge_size + 2 >= file_sz) {
         break;
