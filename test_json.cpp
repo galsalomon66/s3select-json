@@ -223,7 +223,7 @@ int main(int argc, char* argv[])
   size_t m_processed_bytes;
 
   try {
-    input_file_stream = std::ifstream("sample2.json", std::ios::in | std::ios::binary);
+    input_file_stream = std::ifstream("sample40.json", std::ios::in | std::ios::binary); // 1 GB file
   }
   catch( ... )  {
   std::cout << "failed to open file " << std::endl;  
@@ -237,9 +237,9 @@ int main(int argc, char* argv[])
   size_t merge_size;
   char* buff = (char*)malloc(buffer_size);
 
-  const char* key = "address/streetAddress/";
+  const char* key = "Source Data/key=4lwicsuorhkvkoqzlgfcig/";
 
-  auto file_sz = std::filesystem::file_size("sample2.json");
+  auto file_sz = std::filesystem::file_size("sample40.json");
 
   std::vector <char> stack;
 
@@ -284,7 +284,7 @@ int main(int argc, char* argv[])
       std::cout<<sax_next_key<<"\n";
       std::string sax_result_4 = parse_json_sax(merge_line.c_str(), key, merge_size);
       std::cout<<sax_result_4;
-      if (tmp_buff.size() + 1 == size) {
+      if (tmp_buff.size() + 1 == size || merge_size + 2 >= file_sz) {
         break;
       } else {
         start_index = p_obj_chunk - buff;
