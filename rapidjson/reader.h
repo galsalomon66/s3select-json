@@ -617,7 +617,8 @@ public:
         \return Whether the parsing is successful.
      */
     template <unsigned parseFlags, typename InputStream, typename Handler>
-    bool IterativeParseNext(InputStream& is, Handler& handler) {
+    bool IterativeParseNext(InputStream& is, Handler& handler, size_t total_size) {
+        static size_t processed{};
         while (RAPIDJSON_LIKELY(is.Peek() != '\0')) {
             SkipWhitespaceAndComments<parseFlags>(is);
 
@@ -625,10 +626,12 @@ public:
             IterativeParsingState n = Predict(state_, t);
             IterativeParsingState d = Transit<parseFlags>(state_, t, n, is, handler);
 
+            processed += is.Tell();
+
             // If we've finished or hit an error...
             if (RAPIDJSON_UNLIKELY(IsIterativeParsingCompleteState(d))) {
                 // Report errors.
-                if (d == IterativeParsingErrorState) {
+                if (d == IterativeParsingErrorState && processed == total_size) {
                     HandleError(state_, is);
                     return false;
                 }
@@ -641,7 +644,7 @@ public:
                 if (!(parseFlags & kParseStopWhenDoneFlag)) {
                     // ... and extra non-whitespace data is found...
                     SkipWhitespaceAndComments<parseFlags>(is);
-                    if (is.Peek() != '\0') {
+                    if (is.Peek() != '\0' && processed == total_size) {
                         // ... this is considered an error.
                         HandleError(state_, is);
                         return false;
@@ -656,14 +659,13 @@ public:
             state_ = d;
 
             // If we parsed anything other than a delimiter, we invoked the handler, so we can return true now.
-            if (!IsIterativeParsingDelimiterState(n))
-                return true;
+            if (!IsIterativeParsingDelimiterState(n))   {  return true; }
         }
 
         // We reached the end of file.
         stack_.Clear();
 
-        if (state_ != IterativeParsingFinishState) {
+        if (state_ != IterativeParsingFinishState && processed == total_size) {
             HandleError(state_, is);
             return false;
         }
@@ -680,6 +682,8 @@ public:
 
     //! Whether a parse error has occurred in the last parsing.
     bool HasParseError() const { return parseResult_.IsError(); }
+
+    bool HasParseContinue() const { return parseResult_.IsContinue(); }
 
     //! Get the \ref ParseErrorCode of last parsing.
     ParseErrorCode GetParseErrorCode() const { return parseResult_.Code(); }

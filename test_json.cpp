@@ -58,7 +58,7 @@ std::string parse_json_dom(const char* file_name)
 
   return final_result;
 }
-
+/*
 std::string parse_json_sax(const char* buff, const char* key, size_t size)
 {
   std::stringstream result;
@@ -94,8 +94,8 @@ std::string parse_json_sax(const char* buff, const char* key, size_t size)
   }
   final_result = result.str();
   return final_result;
-}
-
+}*/
+/*
 std::string get_value_sax(const char* buff, const char* key, size_t size)
 {
   std::stringstream result;
@@ -130,8 +130,8 @@ std::string get_value_sax(const char* buff, const char* key, size_t size)
   }
   final_result = result.str();
   return final_result;
-}
-
+}*/
+/*
 std::string get_next_key_sax(const char* buff, const char* key, size_t size)
 {
   std::stringstream result;
@@ -156,7 +156,7 @@ std::string get_next_key_sax(const char* buff, const char* key, size_t size)
   
   final_result = handler.get_my_prev_key();
   return final_result;
-}
+}*/
 /*
 TEST(Jsonparse, json)
 {
@@ -239,70 +239,49 @@ int main(int argc, char* argv[])
   size_t merge_size;
   char* buff = (char*)malloc(buffer_size);
 
-  const char* key = "Source Data/key=4lwicsuorhkvkoqzlgfcig/";
+  const char* key = "level1/level2/level3/level4/";
 
   auto file_sz = std::filesystem::file_size(file_name);
+  
+  std::stringstream result;
+  std::string final_result;
 
-  std::vector <char> stack;
+  rapidjson::MemoryStream buffer(buff, size);
 
-  while(1) {
-  size = input_file_stream.readsome(buff, buffer_size);
-  std::cout << "@@read from file" << std::endl;
+  MyHandler handler;
+  handler.set_search_key(key);
+  rapidjson::Reader reader{};
 
-  if(!size || input_file_stream.eof()){
+  reader.IterativeParseInit();
+  while (!reader.IterativeParseComplete()) {
+    size = input_file_stream.readsome(buff, buffer_size);
+    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler, file_sz);
+    if(reader.HasParseError())  {
+      rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
+      size_t o = reader.GetErrorOffset();
+      std::cout << "PARSE ERROR " << c << " " << o << std::endl;
       break;
-  }
-
-  std::string tmp_buff;
-
-  char* p_obj_chunk = (char*)buff;
-  char* prev_chunk = (char*)buff;
-  size_t start_index{};
-  size_t len{};
-  while (p_obj_chunk < buff + size) {
-    switch(*p_obj_chunk)
-    {
-      case '{':
-      case '[':
-      case '(':
-        stack.push_back('(');
-        break;
-      case '}':
-      case ']':
-      case ')':
-        stack.pop_back();
-        break;
-      default:
-        break;  
-    }
-    p_obj_chunk++;
-    len = p_obj_chunk - prev_chunk;
-    if(stack.empty()) {
-      std::cout << "@@empty stack" << std::endl;
-      tmp_buff.assign((char*)buff, start_index, len);
-      merge_line += tmp_buff;
-      merge_size = merge_line.size();
-      std::string sax_result = get_value_sax(merge_line.c_str(), key, merge_size);
-      std::cout<<sax_result;
-      std::string sax_next_key = get_next_key_sax(merge_line.c_str(), key, merge_size);
-      std::cout<<sax_next_key<<"\n";
-      std::string sax_result_4 = parse_json_sax(merge_line.c_str(), key, merge_size);
-      std::cout << "@@ merge line size = " << merge_line.size() << std::endl;
-      std::cout<<sax_result_4;
-      if (tmp_buff.size() + 1 == size || merge_size + 2 >= file_sz) {
-        break;
-      } else {
-        start_index = p_obj_chunk - buff;
-        prev_chunk = p_obj_chunk;
       }
+
+      if(reader.HasParseContinue())  {
+        continue;
+      }
+      if(!size || input_file_stream.eof()){
+      break;
     }
+    }
+  
+  for (const auto& i : handler.get_myvalue()) {
+    switch(i.type()) {
+      case Valuesax::Decimal: result << i.asInt() << "\n"; break;
+      case Valuesax::Double: result << i.asDouble() << "\n"; break;
+      case Valuesax::String: result << i.asString() << "\n"; break;
+      case Valuesax::Bool: result << std::boolalpha << i.asBool() << "\n"; break;
+      case Valuesax::Null: result << "null" << "\n"; break;
+      default: break;
+    }
+  }
+  final_result = result.str();
+  std::cout<<"final result is " << final_result<<"\n";
   }
   
-  if (tmp_buff.size() + 1 == size) {
-    continue;
-  } else {
-    tmp_buff.assign((char*)buff, start_index, len);
-    merge_line += tmp_buff;
-  }
-  }
-}

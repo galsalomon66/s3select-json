@@ -122,6 +122,8 @@ public:
     //! Whether the result is an error.
     bool IsError() const { return code_ != kParseErrorNone; }
 
+    bool IsContinue() const { return code_ == kParseErrorNone; }
+
     bool operator==(const ParseResult& that) const { return code_ == that.code_; }
     bool operator==(ParseErrorCode code) const { return code_ == code; }
     friend bool operator==(ParseErrorCode code, const ParseResult & err) { return code == err.code_; }
