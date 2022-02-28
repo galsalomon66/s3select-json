@@ -124,7 +124,7 @@ std::string extract_key_values(char* buff,uint64_t buffer_sz, std::ifstream* inp
     }
   }
 
-  #if 0
+  #if 1
   //print out all key values 
   for (const auto& i : handler.get_mykeyvalue()) {
     switch(i.second.type()) {
