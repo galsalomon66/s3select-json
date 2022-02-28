@@ -129,39 +129,20 @@ class Valuesax {
 class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandler> {
   std::vector < std::pair < std::string, Valuesax>> mymap;
   Valuesax value;
-  //std::vector <Valuesax> myvalue;
-  //std::string my_prev_key{};
-  //std::string search_key;
-  //std::string search_prev_key{};
   std::vector <char> vect;
   std::string keyname{};
   std::string keyvalue;
-  //std::string prev_key{};
   bool valuep{};
   size_t start_counter{};
   std::vector<std::string> mystack;
   std::unordered_map<int, std::string> key_stack;
   public:
   MyHandler() : valuep{false}, start_counter{0} {}
-  //void set_search_key(std::string key) {
-  //  search_key = key;
-  //}
-  //void set_search_prev_key(std::string key) {
-  //  search_prev_key = key;
-  //}
-  //std::string get_my_prev_key()
-  //{
-  //  return my_prev_key;
-  //}
-
-  //std::vector<Valuesax> get_myvalue() {
-  //  return myvalue;
-  //}
-
   std::string createKey()
   {
       //loop on key stack
       //pop last element
+      return std::string("");
   }
 
   std::vector < std::pair < std::string, Valuesax>> get_mykeyvalue() {
@@ -208,7 +189,6 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
 
   bool StartObject() {
     if(!valuep) {
-      //if (mystack.size() == 0 || mystack[mystack.size() - 1] != keyname) {
       if (mystack.size() == 0 || mystack.front() != keyname) {
 	if (keyname.length()) {
 	  mystack.push_back(keyname);
@@ -222,7 +202,6 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
   }
 
   bool Key(const char* str, rapidjson::SizeType length, bool copy) {
-    //prev_key = keyvalue;
     std::vector<std::string> stack{mystack};
     stack.push_back(str);
     valuep = false;
@@ -234,9 +213,6 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
       }
     }
     keyname = str;
-   // if (search_prev_key == prev_key) {
-   //   my_prev_key = keyvalue;
-   // }
     return true;
   }
 
