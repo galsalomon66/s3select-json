@@ -8,7 +8,7 @@
 
 void dom_traverse_v2::print(const rapidjson::Value &v, std::string key_name)
 {
-  ss << key_name << ": ";
+  ss << key_name << " : ";
 
   if(v.IsString())
   {

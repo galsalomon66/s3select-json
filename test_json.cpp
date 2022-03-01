@@ -79,15 +79,24 @@ class my_memory_stm : public rapidjson::MemoryStream {
 
 };
 
-std::string extract_key_values(char* buff,uint64_t buffer_sz, std::ifstream* input_file_stream)
+std::string extract_key_values(char* buff,uint64_t buffer_sz, const char* file_name)
 {
+  std::ifstream input_file_stream;
+  try {
+    input_file_stream = std::ifstream(file_name, std::ios::in | std::ios::binary);
+  }
+  catch( ... ){
+    std::cout << "failed to open file " << std::endl;  
+    exit(-1);
+  }
+
   std::stringstream result;
   std::string final_result;
 
   //rapidjson::MemoryStream buffer(buff, buffer_sz);
 
   //read first chunk;
-  auto read_size = input_file_stream->readsome(buff, buffer_sz);
+  auto read_size = input_file_stream.readsome(buff, buffer_sz);
   //set the memoryStreamer
   my_memory_stm buffer(buff, read_size);
 
@@ -109,7 +118,7 @@ std::string extract_key_values(char* buff,uint64_t buffer_sz, std::ifstream* inp
       memcpy(buff, buffer.src_, bytes_left);
 
       // read next chunk, appended to remain stream 
-      read_size = input_file_stream->readsome(buff+bytes_left, buffer_sz - bytes_left);
+      read_size = input_file_stream.readsome(buff+bytes_left, buffer_sz - bytes_left);
 
       // memoryStreamer are reset per the new buffer
       buffer.resetBuffer(buff,read_size+bytes_left);
@@ -142,26 +151,83 @@ std::string extract_key_values(char* buff,uint64_t buffer_sz, std::ifstream* inp
   return final_result;
 }
 
-int main(int argc, char* argv[])
+TEST(Jsonparse, json)
 {
-  std::ifstream input_file_stream;
-
-  char* file_name = argv[1];
-
-  try {
-    input_file_stream = std::ifstream(file_name, std::ios::in | std::ios::binary);
-  }
-  catch( ... ){
-    std::cout << "failed to open file " << std::endl;  
-    exit(-1);
-  }
-
-
   size_t buff_sz = 4096;
   char* buff = (char*)malloc(buff_sz);
 
+  std::string sax_result = extract_key_values(buff, buff_sz, "sample4.json");
 
-  std::cout << extract_key_values(buff, buff_sz, &input_file_stream) << std::endl;
+  std::string dom_result = parse_json_dom("sample4.json");
+
+  ASSERT_EQ(dom_result, sax_result);
+}
+
+TEST(Jsonparse, json1)
+{
+  size_t buff_sz = 4096;
+  char* buff = (char*)malloc(buff_sz);
+
+  std::string sax_result_1 = extract_key_values(buff, buff_sz, "sample2.json");
+
+  std::string dom_result_1 = parse_json_dom("sample2.json");
+
+  ASSERT_EQ(dom_result_1, sax_result_1);
+}
+
+TEST(Jsonparse, json2)
+{
+  size_t buff_sz = 4096;
+  char* buff = (char*)malloc(buff_sz);
+
+  std::string sax_result_2 = extract_key_values(buff, buff_sz, "sample3.json");
+
+  std::string dom_result_2 = parse_json_dom("sample3.json");
+
+  ASSERT_EQ(dom_result_2, sax_result_2);
+}
+
+TEST(Jsonparse, json3)
+{
+  size_t buff_sz = 4096;
+  char* buff = (char*)malloc(buff_sz);
+
+  std::string sax_result_3 = extract_key_values(buff, buff_sz, "sample8.json");
+
+  std::string dom_result_3 = parse_json_dom("sample8.json");
+
+  ASSERT_EQ(dom_result_3, sax_result_3);
+}
+
+TEST(Jsonparse, json4)
+{
+  size_t buff_sz = 4096;
+  char* buff = (char*)malloc(buff_sz);
+
+  std::string sax_result_4 = extract_key_values(buff, buff_sz, "sample9.json");
+
+  std::string dom_result_4 = parse_json_dom("sample9.json");
+
+  ASSERT_EQ(dom_result_4, sax_result_4);
+}
+
+TEST(Jsonparse, json5)
+{
+  size_t buff_sz = 4096;
+  char* buff = (char*)malloc(buff_sz);
+
+  std::string sax_result_5 = extract_key_values(buff, buff_sz, "sample13.json");
+
+  std::string dom_result_5 = parse_json_dom("sample13.json");
+
+  ASSERT_EQ(dom_result_5, sax_result_5);
+}
+
+int main(int argc, char* argv[])
+{
+  testing::InitGoogleTest(&argc, argv);
+
+  return RUN_ALL_TESTS();
 
   return 0;
 }
