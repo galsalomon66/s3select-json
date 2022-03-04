@@ -67,12 +67,21 @@ class my_memory_stm : public rapidjson::MemoryStream {
 
     my_memory_stm(const Ch *src, size_t size) : rapidjson::MemoryStream(src,size){}
 
-    void resetBuffer(char *start,size_t size)//TODO add chunk as parameter
+    void resetBuffer(char* buff, size_t bytes_left, std::ifstream& input_file_stream)//TODO add chunk as parameter
     {
-      begin_ = start;
-      src_ = start;
-      size_ = size;
+      // copy remain stream
+      size_t buffer_sz{4096};
+      memcpy(buff, src_, bytes_left);
+      auto read_size = input_file_stream.readsome(buff + bytes_left, buffer_sz - bytes_left);
+      begin_ = buff;
+      src_ = buff;
+      size_ = read_size + bytes_left;
       end_= src_ + size_;
+    }
+
+    void PushDataToProcess()
+    {
+
     }
 
     size_t getBytesLeft() { return end_ - src_; }
@@ -106,6 +115,7 @@ std::string extract_key_values(char* buff,uint64_t buffer_sz, const char* file_n
   reader.IterativeParseInit();
   while (!reader.IterativeParseComplete()) {
     reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
+    buffer.PushDataToProcess();
 
     //calculate how much left to process
     size_t bytes_left = buffer.getBytesLeft();
@@ -113,15 +123,8 @@ std::string extract_key_values(char* buff,uint64_t buffer_sz, const char* file_n
     //upon true, the non-processed bytes plus the next chunk are copy into main processing buffer 
     if (bytes_left < buffer_sz/2)//TODO this condition could be replaced
     {
-
-      // copy remain stream  
-      memcpy(buff, buffer.src_, bytes_left);
-
-      // read next chunk, appended to remain stream 
-      read_size = input_file_stream.readsome(buff+bytes_left, buffer_sz - bytes_left);
-
-      // memoryStreamer are reset per the new buffer
-      buffer.resetBuffer(buff,read_size+bytes_left);
+    // memoryStreamer are reset per the new buffer
+      buffer.resetBuffer(buff, bytes_left, input_file_stream);
     }
 
     // error message
