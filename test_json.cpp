@@ -67,16 +67,17 @@ class my_memory_stm : public rapidjson::MemoryStream {
 
     my_memory_stm(const Ch *src, size_t size) : rapidjson::MemoryStream(src,size){}
 
-    void resetBuffer(char* buff, size_t bytes_left, std::ifstream& input_file_stream)//TODO add chunk as parameter
+    void resetBuffer(char* buff, size_t size)//TODO add chunk as parameter
     {
-      // copy remain stream
-      size_t buffer_sz{4096};
-      memcpy(buff, src_, bytes_left);
-      auto read_size = input_file_stream.readsome(buff + bytes_left, buffer_sz - bytes_left);
       begin_ = buff;
       src_ = buff;
-      size_ = read_size + bytes_left;
+      size_ = size;
       end_= src_ + size_;
+    }
+
+    void copy_stream(char* buff, size_t bytes_left)
+    {
+      memcpy(buff, src_, bytes_left);
     }
 
     void PushDataToProcess()
@@ -103,7 +104,7 @@ std::string extract_key_values(char* buff,uint64_t buffer_sz, const char* file_n
   std::string final_result;
 
   //rapidjson::MemoryStream buffer(buff, buffer_sz);
-
+  int counter{};
   //read first chunk;
   auto read_size = input_file_stream.readsome(buff, buffer_sz);
   //set the memoryStreamer
@@ -111,28 +112,44 @@ std::string extract_key_values(char* buff,uint64_t buffer_sz, const char* file_n
 
   MyHandler handler;
   rapidjson::Reader reader{};
+  size_t bytes_left;
 
   reader.IterativeParseInit();
-  while (!reader.IterativeParseComplete()) {
-    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
-    buffer.PushDataToProcess();
 
-    //calculate how much left to process
-    size_t bytes_left = buffer.getBytesLeft();
-
-    //upon true, the non-processed bytes plus the next chunk are copy into main processing buffer 
-    if (bytes_left < buffer_sz/2)//TODO this condition could be replaced
-    {
-    // memoryStreamer are reset per the new buffer
-      buffer.resetBuffer(buff, bytes_left, input_file_stream);
-    }
-
-    // error message
-    if(reader.HasParseError())  {
-      rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
-      size_t o = reader.GetErrorOffset();
-      std::cout << "PARSE ERROR " << c << " " << o << std::endl;
+  while(1) {
+    if(!read_size || input_file_stream.eof()){
       break;
+    }
+    if (counter) {
+      auto read_size = input_file_stream.readsome(buff + bytes_left, buffer_sz - bytes_left);
+      // memoryStreamer are reset per the new buffer
+      buffer.resetBuffer(buff, bytes_left + read_size);
+      if (reader.IterativeParseComplete()) {
+        break;
+      }
+    }
+    while (!reader.IterativeParseComplete()) {
+      reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
+      buffer.PushDataToProcess();
+
+      //calculate how much left to process
+      bytes_left = buffer.getBytesLeft();
+      ++counter;
+
+      //upon true, the non-processed bytes plus the next chunk are copy into main processing buffer 
+      if (bytes_left < buffer_sz/2)//TODO this condition could be replaced
+      {
+        buffer.copy_stream(buff, bytes_left);
+        break;
+      }
+
+      // error message
+      if(reader.HasParseError())  {
+        rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
+        size_t o = reader.GetErrorOffset();
+        std::cout << "PARSE ERROR " << c << " " << o << std::endl;
+        break;
+      }
     }
   }
 
