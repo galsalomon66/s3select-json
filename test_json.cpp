@@ -80,81 +80,75 @@ class my_memory_stm : public rapidjson::MemoryStream {
       memcpy(buff, src_, bytes_left);
     }
 
-    void PushDataToProcess()
-    {
-
-    }
-
     size_t getBytesLeft() { return end_ - src_; }
 
 };
 
-std::string extract_key_values(char* buff,uint64_t buffer_sz, const char* file_name)
+void extract_key_values(char* buff,uint64_t buffer_sz, my_memory_stm &buffer, rapidjson::Reader& reader, MyHandler& handler)
+{
+  while (!reader.IterativeParseComplete()) {
+    reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
+
+      //upon true, the non-processed bytes plus the next chunk are copy into main processing buffer 
+    if (buffer.getBytesLeft() < buffer_sz/2)//TODO this condition could be replaced
+     {
+        buffer.copy_stream(buff, buffer.getBytesLeft());
+        return;
+      }
+      // error message
+    if(reader.HasParseError())  {
+      rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
+      size_t o = reader.GetErrorOffset();
+      std::cout << "PARSE ERROR " << c << " " << o << std::endl;
+      break;
+    }
+  }
+}
+
+TEST(Jsonparse, json)
 {
   std::ifstream input_file_stream;
+  std::string sax_result;
+  std::stringstream result;
+  rapidjson::Reader reader{};
+  MyHandler handler;
+
   try {
-    input_file_stream = std::ifstream(file_name, std::ios::in | std::ios::binary);
+    input_file_stream = std::ifstream("sample4.json", std::ios::in | std::ios::binary);
   }
   catch( ... ){
     std::cout << "failed to open file " << std::endl;  
     exit(-1);
   }
-
-  std::stringstream result;
-  std::string final_result;
-
-  //rapidjson::MemoryStream buffer(buff, buffer_sz);
+  size_t buff_sz{4096};
+  char* buff = (char*)malloc(buff_sz);
   int counter{};
+
   //read first chunk;
-  auto read_size = input_file_stream.readsome(buff, buffer_sz);
+  auto read_size = input_file_stream.readsome(buff, buff_sz);
+
   //set the memoryStreamer
   my_memory_stm buffer(buff, read_size);
-
-  MyHandler handler;
-  rapidjson::Reader reader{};
-  size_t bytes_left;
-
   reader.IterativeParseInit();
 
   while(1) {
     if(!read_size || input_file_stream.eof()){
       break;
     }
+
     if (counter) {
-      auto read_size = input_file_stream.readsome(buff + bytes_left, buffer_sz - bytes_left);
+      auto read_size = input_file_stream.readsome(buff + buffer.getBytesLeft(), buff_sz - buffer.getBytesLeft());
       // memoryStreamer are reset per the new buffer
-      buffer.resetBuffer(buff, bytes_left + read_size);
+      buffer.resetBuffer(buff, buffer.getBytesLeft() + read_size);
       if (reader.IterativeParseComplete()) {
         break;
       }
     }
-    while (!reader.IterativeParseComplete()) {
-      reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
-      buffer.PushDataToProcess();
 
-      //calculate how much left to process
-      bytes_left = buffer.getBytesLeft();
-      ++counter;
-
-      //upon true, the non-processed bytes plus the next chunk are copy into main processing buffer 
-      if (bytes_left < buffer_sz/2)//TODO this condition could be replaced
-      {
-        buffer.copy_stream(buff, bytes_left);
-        break;
-      }
-
-      // error message
-      if(reader.HasParseError())  {
-        rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
-        size_t o = reader.GetErrorOffset();
-        std::cout << "PARSE ERROR " << c << " " << o << std::endl;
-        break;
-      }
-    }
+  extract_key_values(buff, buff_sz, buffer, reader, handler);
+  ++counter;
   }
 
-  #if 1
-  //print out all key values 
   for (const auto& i : handler.get_mykeyvalue()) {
     switch(i.second.type()) {
       case Valuesax::Decimal: result << i.first << " : " << i.second.asInt() << "\n"; break;
@@ -165,24 +159,14 @@ std::string extract_key_values(char* buff,uint64_t buffer_sz, const char* file_n
       default: break;
     }
   }
-  #endif
 
-  final_result = result.str();
-  return final_result;
-}
-
-TEST(Jsonparse, json)
-{
-  size_t buff_sz = 4096;
-  char* buff = (char*)malloc(buff_sz);
-
-  std::string sax_result = extract_key_values(buff, buff_sz, "sample4.json");
+  sax_result = result.str();
 
   std::string dom_result = parse_json_dom("sample4.json");
 
   ASSERT_EQ(dom_result, sax_result);
 }
-
+/*
 TEST(Jsonparse, json1)
 {
   size_t buff_sz = 4096;
@@ -241,7 +225,7 @@ TEST(Jsonparse, json5)
   std::string dom_result_5 = parse_json_dom("sample13.json");
 
   ASSERT_EQ(dom_result_5, sax_result_5);
-}
+}*/
 
 int main(int argc, char* argv[])
 {
