@@ -84,10 +84,23 @@ class my_memory_stm : public rapidjson::MemoryStream {
 
 };
 
-void extract_key_values(char* buff,uint64_t buffer_sz, my_memory_stm &buffer, rapidjson::Reader& reader, MyHandler& handler)
+void extract_key_values(char* buff,uint64_t buffer_sz, my_memory_stm &buffer, rapidjson::Reader& reader, MyHandler& handler, std::stringstream& result)
 {
   while (!reader.IterativeParseComplete()) {
     reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(buffer, handler);
+
+    for (const auto& i : handler.get_mykeyvalue()) {
+      switch(i.second.type()) {
+        case Valuesax::Decimal: result << i.first << " : " << i.second.asInt() << "\n"; break;
+        case Valuesax::Double: result << i.first << " : " << i.second.asDouble() << "\n"; break;
+        case Valuesax::String: result << i.first << " : " << i.second.asString() << "\n"; break;
+        case Valuesax::Bool: result << i.first << " : " << std::boolalpha << i.second.asBool() << "\n"; break;
+        case Valuesax::Null: result << i.first << " : " << "null" << "\n"; break;
+        default: break;
+      }
+    }
+
+    handler.emptyhandler();
 
       //upon true, the non-processed bytes plus the next chunk are copy into main processing buffer 
     if (buffer.getBytesLeft() < buffer_sz/2)//TODO this condition could be replaced
@@ -105,16 +118,16 @@ void extract_key_values(char* buff,uint64_t buffer_sz, my_memory_stm &buffer, ra
   }
 }
 
-TEST(Jsonparse, json)
+std::string sax_value(const char* file_name)
 {
   std::ifstream input_file_stream;
   std::string sax_result;
   std::stringstream result;
   rapidjson::Reader reader{};
-  MyHandler handler;
+  MyHandler handler{};
 
   try {
-    input_file_stream = std::ifstream("sample4.json", std::ios::in | std::ios::binary);
+    input_file_stream = std::ifstream(file_name, std::ios::in | std::ios::binary);
   }
   catch( ... ){
     std::cout << "failed to open file " << std::endl;  
@@ -145,34 +158,27 @@ TEST(Jsonparse, json)
       }
     }
 
-  extract_key_values(buff, buff_sz, buffer, reader, handler);
+  extract_key_values(buff, buff_sz, buffer, reader, handler, result);
   ++counter;
   }
 
-  for (const auto& i : handler.get_mykeyvalue()) {
-    switch(i.second.type()) {
-      case Valuesax::Decimal: result << i.first << " : " << i.second.asInt() << "\n"; break;
-      case Valuesax::Double: result << i.first << " : " << i.second.asDouble() << "\n"; break;
-      case Valuesax::String: result << i.first << " : " << i.second.asString() << "\n"; break;
-      case Valuesax::Bool: result << i.first << " : " << std::boolalpha << i.second.asBool() << "\n"; break;
-      case Valuesax::Null: result << i.first << " : " << "null" << "\n"; break;
-      default: break;
-    }
-  }
-
   sax_result = result.str();
+
+  return sax_result;
+}
+
+TEST(Jsonparse, json)
+{
+  std::string sax_result = sax_value("sample4.json");
 
   std::string dom_result = parse_json_dom("sample4.json");
 
   ASSERT_EQ(dom_result, sax_result);
 }
-/*
+
 TEST(Jsonparse, json1)
 {
-  size_t buff_sz = 4096;
-  char* buff = (char*)malloc(buff_sz);
-
-  std::string sax_result_1 = extract_key_values(buff, buff_sz, "sample2.json");
+  std::string sax_result_1 = sax_value("sample2.json");
 
   std::string dom_result_1 = parse_json_dom("sample2.json");
 
@@ -181,10 +187,7 @@ TEST(Jsonparse, json1)
 
 TEST(Jsonparse, json2)
 {
-  size_t buff_sz = 4096;
-  char* buff = (char*)malloc(buff_sz);
-
-  std::string sax_result_2 = extract_key_values(buff, buff_sz, "sample3.json");
+  std::string sax_result_2 = sax_value("sample3.json");
 
   std::string dom_result_2 = parse_json_dom("sample3.json");
 
@@ -193,10 +196,7 @@ TEST(Jsonparse, json2)
 
 TEST(Jsonparse, json3)
 {
-  size_t buff_sz = 4096;
-  char* buff = (char*)malloc(buff_sz);
-
-  std::string sax_result_3 = extract_key_values(buff, buff_sz, "sample8.json");
+  std::string sax_result_3 = sax_value("sample8.json");
 
   std::string dom_result_3 = parse_json_dom("sample8.json");
 
@@ -205,10 +205,7 @@ TEST(Jsonparse, json3)
 
 TEST(Jsonparse, json4)
 {
-  size_t buff_sz = 4096;
-  char* buff = (char*)malloc(buff_sz);
-
-  std::string sax_result_4 = extract_key_values(buff, buff_sz, "sample9.json");
+  std::string sax_result_4 = sax_value("sample9.json");
 
   std::string dom_result_4 = parse_json_dom("sample9.json");
 
@@ -217,15 +214,12 @@ TEST(Jsonparse, json4)
 
 TEST(Jsonparse, json5)
 {
-  size_t buff_sz = 4096;
-  char* buff = (char*)malloc(buff_sz);
-
-  std::string sax_result_5 = extract_key_values(buff, buff_sz, "sample13.json");
+  std::string sax_result_5 = sax_value("sample13.json");
 
   std::string dom_result_5 = parse_json_dom("sample13.json");
 
   ASSERT_EQ(dom_result_5, sax_result_5);
-}*/
+}
 
 int main(int argc, char* argv[])
 {

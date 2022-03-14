@@ -145,6 +145,10 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
       return std::string("");
   }
 
+  void emptyhandler() {
+    mymap.clear();
+  }
+
   std::vector < std::pair < std::string, Valuesax>> get_mykeyvalue() {
     return mymap;
   }
