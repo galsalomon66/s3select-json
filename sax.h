@@ -298,8 +298,7 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
     return true; 
   }
 
-
-  void process_rgw_buffer(char* rgw_buffer,size_t rgw_buffer_sz)
+  void process_rgw_buffer(char* rgw_buffer,size_t rgw_buffer_sz, bool end_of_stream=false)
   {//RGW keeps calling with buffers, this method is not aware of object size
 
     std::stringstream result;
@@ -312,7 +311,8 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
     }
 
     //the non-processed bytes plus the next chunk are copy into main processing buffer 
-    stream_buffer.resetBuffer(rgw_buffer, rgw_buffer_sz);
+    if(!end_of_stream)
+	stream_buffer.resetBuffer(rgw_buffer, rgw_buffer_sz);
 
     while (!reader.IterativeParseComplete()) {
       reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(stream_buffer, *this);
@@ -339,7 +339,7 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
       //once all key-values move into s3select(for further filtering and processing), it should be cleared
       this->emptyhandler();
 
-      if (stream_buffer.getBytesLeft() < 100)//TODO this condition could be replaced. it also define the amount of data that should be copy
+      if (!end_of_stream && stream_buffer.getBytesLeft() < 100)//TODO this condition could be replaced. it also define the amount of data that should be copy
       {//the non processed bytes will be processed on next fetched chunk
 	return;
       }

@@ -86,6 +86,7 @@ void RGW_send_data(const char* object_name)
     //read next chunk
     read_size = input_file_stream.readsome(buff, buff_sz);
   }
+  handler.process_rgw_buffer(0, 0, true);
 
 }
 
