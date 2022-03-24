@@ -60,12 +60,12 @@ std::string parse_json_dom(const char* file_name)
 }
 
 
-void RGW_send_data(const char* object_name)
+int RGW_send_data(const char* object_name)
 {//purpose: simulate RGW streaming an object into s3select
 
   std::ifstream input_file_stream;
   MyHandler handler;
-  size_t buff_sz{4096};
+  size_t buff_sz{1024*1024*4};
   char* buff = (char*)malloc(buff_sz);
 
   try {
@@ -81,13 +81,15 @@ void RGW_send_data(const char* object_name)
   while(read_size)
   {
     //the handler is processing any buffer size
-    handler.process_rgw_buffer(buff, read_size);
+    int status = handler.process_rgw_buffer(buff, read_size);
+    if(status<0) return -1;
     
     //read next chunk
     read_size = input_file_stream.readsome(buff, buff_sz);
   }
   handler.process_rgw_buffer(0, 0, true);
 
+  return 0;
 }
 
 int main(int argc, char* argv[])

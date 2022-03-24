@@ -133,29 +133,86 @@ class ChunksStreamer : public rapidjson::MemoryStream {
   public:
 
     std::string internal_buffer;
+    const Ch* next_src_;
+    size_t next_size_;
 
-    ChunksStreamer():rapidjson::MemoryStream(0,0){}
+    ChunksStreamer():rapidjson::MemoryStream(0,0){next_src_=0;next_size_=0;}
 
-    ChunksStreamer(const Ch *src, size_t size) : rapidjson::MemoryStream(src,size){}
+    ChunksStreamer(const Ch *src, size_t size) : rapidjson::MemoryStream(src,size){next_src_=0;next_size_=0;}
+
+    virtual Ch Peek() //const 
+    {
+      if(RAPIDJSON_UNLIKELY(src_ == end_))
+      {
+	if(next_src_)//next chunk exist
+	{//upon reaching to end of current buffer, to switch with next one
+	  src_ = next_src_;
+	  begin_ = src_;
+	  size_ =next_size_;
+	  end_ = src_ + size_;
+
+	  next_src_ = 0;
+	  next_size_ = 0;
+	  return *src_;
+	}
+	else return 0;
+      }
+      return *src_;
+    }
+
+    virtual Ch Take() 
+    {
+      if(RAPIDJSON_UNLIKELY(src_ == end_))
+      {
+	if(next_src_)//next chunk exist
+	{//upon reaching to end of current buffer, to switch with next one
+	  src_ = next_src_;
+	  begin_ = src_;
+	  size_ = next_size_;
+	  end_ = src_ + size_;
+
+	  next_src_ = 0;
+	  next_size_ = 0;
+	  return *src_;
+	}
+	else return 0;
+      }
+      return *src_++;
+    }
 
     void resetBuffer(char* buff, size_t size)
     {
-      //in case bytes left to "move" it to left
-      std::string tmp;
-      size_t copy_left_sz = 0;
-      if(getBytesLeft())
-      {//TODO effieciency (src_,end_ should switch between buffers, to override ::take method, this would save the buffers copy each time)
-	copy_left_sz = getBytesLeft();
-	tmp.assign(src_,copy_left_sz);
-	internal_buffer.assign(tmp.data(),copy_left_sz);
+      if(!src_)
+      {//first time calling
+	begin_ = buff;
+	src_ = buff;
+	size_ = size;
+	end_= src_ + size_;
+	return;
       }
 
-      internal_buffer.append(buff,size);
+      if(!next_src_)
+      {//save the next-chunk that will be used upon parser reaches end of current buffer
+	next_src_ = buff;
+	next_size_ = size;
+      }
+      else
+      {// should not happen
+	std::cout << "can not replace pointers!!!" << std::endl;//TODO exception
+	return;
+      }
+    }
 
-      begin_ = internal_buffer.data();//buff;
-      src_ = internal_buffer.data();//buff;
-      size_ = size + copy_left_sz;
-      end_= src_ + size_;
+    void saveRemainingBytes()
+    {//this routine called per each new chunk
+      //savine the remaining bytes, before its overriden by the next-chunk.
+      size_t copy_left_sz = getBytesLeft(); //should be very small
+      internal_buffer.assign(src_,copy_left_sz);
+      
+      src_ = internal_buffer.data();
+      begin_ = src_;
+      size_ = copy_left_sz;
+      end_= src_ + copy_left_sz;
     }
 
     size_t getBytesLeft() { return end_ - src_; }
@@ -164,195 +221,199 @@ class ChunksStreamer : public rapidjson::MemoryStream {
 
 class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandler> {
   public:
-  std::vector < std::pair < std::string, Valuesax>> mymap;
-  Valuesax value;
-  std::vector <char> vect;
-  std::string keyname{};
-  std::string keyvalue;
-  bool valuep{};
-  size_t start_counter{};
-  std::vector<std::string> mystack;
-  std::unordered_map<int, std::string> key_stack;
-  ChunksStreamer stream_buffer;
-  bool init_buffer_stream;
+    std::vector < std::pair < std::string, Valuesax>> mymap;
+    Valuesax value;
+    std::vector <char> vect;
+    std::string keyname{};
+    std::string keyvalue;
+    bool valuep{};
+    size_t start_counter{};
+    std::vector<std::string> mystack;
+    std::unordered_map<int, std::string> key_stack;
+    ChunksStreamer stream_buffer;
+    bool init_buffer_stream;
 
-  rapidjson::Reader reader;
+    rapidjson::Reader reader;
 
-  MyHandler() : valuep{false}, start_counter{0},init_buffer_stream(false)
-  {}
+    MyHandler() : valuep{false}, start_counter{0},init_buffer_stream(false)
+    {}
 
-  std::string createKey()
-  {
-    //loop on key stack
-    //pop last element
-    return std::string("");
-  }
+    std::string createKey()
+    {
+      //loop on key stack
+      //pop last element
+      return std::string("");
+    }
 
-  void emptyhandler() {
-    mymap.clear();
-  }
+    void emptyhandler() {
+      mymap.clear();
+    }
 
-  std::vector < std::pair < std::string, Valuesax>> get_mykeyvalue() {
-    return mymap;
-  }
+    std::vector < std::pair < std::string, Valuesax>> get_mykeyvalue() {
+      return mymap;
+    }
 
-  bool Null() {
-    mymap.push_back(std::make_pair(keyvalue, value.Parse(nullptr)));
-    valuep = true; 
-    return true; }
+    bool Null() {
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(nullptr)));
+      valuep = true; 
+      return true; }
 
-  bool Bool(bool b) {
-    mymap.push_back(std::make_pair(keyvalue, value.Parse(b)));
-    valuep = true;
-    return true; }
+    bool Bool(bool b) {
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(b)));
+      valuep = true;
+      return true; }
 
-  bool Int(int i) { 
-    mymap.push_back(std::make_pair(keyvalue, value.Parse(i)));
-    return true; }
+    bool Int(int i) { 
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(i)));
+      return true; }
 
-  bool Uint(unsigned u) {
-    mymap.push_back(std::make_pair(keyvalue, value.Parse(u)));
-    valuep = true;
-    return true; }
+    bool Uint(unsigned u) {
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(u)));
+      valuep = true;
+      return true; }
 
-  bool Int64(int64_t i) { 
-    mymap.push_back(std::make_pair(keyvalue, value.Parse(i)));
-    return true; }
+    bool Int64(int64_t i) { 
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(i)));
+      return true; }
 
-  bool Uint64(uint64_t u) { 
-    mymap.push_back(std::make_pair(keyvalue, value.Parse(u)));
-    return true; }
+    bool Uint64(uint64_t u) { 
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(u)));
+      return true; }
 
-  bool Double(double d) { 
-    mymap.push_back(std::make_pair(keyvalue, value.Parse(d)));
-    valuep = true;
-    return true; }
+    bool Double(double d) { 
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(d)));
+      valuep = true;
+      return true; }
 
-  bool String(const char* str, rapidjson::SizeType length, bool copy) {
-    mymap.push_back(std::make_pair(keyvalue, value.Parse(str)));
-    valuep = true;
-    return true;
-  }
+    bool String(const char* str, rapidjson::SizeType length, bool copy) {
+      mymap.push_back(std::make_pair(keyvalue, value.Parse(str)));
+      valuep = true;
+      return true;
+    }
 
-  bool StartObject() {
-    if(!valuep) {
-      if (mystack.size() == 0 || mystack.front() != keyname) {
-	if (keyname.length()) {
+    bool StartObject() {
+      if(!valuep) {
+	if (mystack.size() == 0 || mystack.front() != keyname) {
+	  if (keyname.length()) {
+	    mystack.push_back(keyname);
+	    start_counter = vect.size();
+	    key_stack[start_counter] = keyname;
+	  }
+	}
+      }
+      vect.push_back('{');
+      return true; 
+    }
+
+    bool Key(const char* str, rapidjson::SizeType length, bool copy) {
+      std::vector<std::string> stack{mystack};
+      stack.push_back(str);
+      valuep = false;
+      keyvalue = "";
+
+      for (const auto& i: stack) {
+	if (i != "") {
+	  keyvalue += i + '/';
+	}
+      }
+      keyname = str;
+      return true;
+    }
+
+    bool EndObject(rapidjson::SizeType memberCount) {
+      vect.pop_back();
+      if (mystack.size() > 0 && vect.size()  == start_counter) {
+	if(key_stack[vect.size()] == mystack.back()) {
+	  mystack.pop_back();
+	}
+
+	--start_counter;
+      }
+      return true;
+    }
+
+    bool StartArray() {
+      if(!valuep) {
+	if (mystack.size() == 0 || mystack[mystack.size() - 1] != keyname) {
 	  mystack.push_back(keyname);
 	  start_counter = vect.size();
 	  key_stack[start_counter] = keyname;
 	}
       }
+      vect.push_back('[');
+      return true; 
     }
-    vect.push_back('{');
-    return true; 
-  }
 
-  bool Key(const char* str, rapidjson::SizeType length, bool copy) {
-    std::vector<std::string> stack{mystack};
-    stack.push_back(str);
-    valuep = false;
-    keyvalue = "";
-
-    for (const auto& i: stack) {
-      if (i != "") {
-	keyvalue += i + '/';
+    bool EndArray(rapidjson::SizeType elementCount) { 
+      vect.pop_back();
+      if (mystack.size() > 0 && vect.size()  == start_counter) {
+	if(key_stack[vect.size()] == mystack.back()) {
+	  mystack.pop_back();
+	}
+	--start_counter;
       }
+      return true; 
     }
-    keyname = str;
-    return true;
-  }
 
-  bool EndObject(rapidjson::SizeType memberCount) {
-    vect.pop_back();
-    if (mystack.size() > 0 && vect.size()  == start_counter) {
-      if(key_stack[vect.size()] == mystack.back()) {
-	mystack.pop_back();
+    int process_rgw_buffer(char* rgw_buffer,size_t rgw_buffer_sz, bool end_of_stream=false)
+    {//RGW keeps calling with buffers, this method is not aware of object size
+
+      std::stringstream result;
+
+      if(!init_buffer_stream)
+      {
+	//set the memoryStreamer
+	reader.IterativeParseInit();
+	init_buffer_stream = true;
       }
 
-      --start_counter;
-    }
-    return true;
-  }
-
-  bool StartArray() {
-    if(!valuep) {
-      if (mystack.size() == 0 || mystack[mystack.size() - 1] != keyname) {
-	mystack.push_back(keyname);
-	start_counter = vect.size();
-	key_stack[start_counter] = keyname;
-      }
-    }
-    vect.push_back('[');
-    return true; 
-  }
-
-  bool EndArray(rapidjson::SizeType elementCount) { 
-    vect.pop_back();
-    if (mystack.size() > 0 && vect.size()  == start_counter) {
-      if(key_stack[vect.size()] == mystack.back()) {
-	mystack.pop_back();
-      }
-      --start_counter;
-    }
-    return true; 
-  }
-
-  void process_rgw_buffer(char* rgw_buffer,size_t rgw_buffer_sz, bool end_of_stream=false)
-  {//RGW keeps calling with buffers, this method is not aware of object size
-
-    std::stringstream result;
-
-    if(!init_buffer_stream)
-    {
-      //set the memoryStreamer
-      reader.IterativeParseInit();
-      init_buffer_stream = true;
-    }
-
-    //the non-processed bytes plus the next chunk are copy into main processing buffer 
-    if(!end_of_stream)
+      //the non-processed bytes plus the next chunk are copy into main processing buffer 
+      if(!end_of_stream)
 	stream_buffer.resetBuffer(rgw_buffer, rgw_buffer_sz);
 
-    while (!reader.IterativeParseComplete()) {
-      reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(stream_buffer, *this);
+      while (!reader.IterativeParseComplete()) {
+	reader.IterativeParseNext<rapidjson::kParseDefaultFlags>(stream_buffer, *this);
 
-      //IterativeParseNext returns per each parsing completion(on lexical level)
-      result.str("");
-      for (const auto& i : this->get_mykeyvalue()) {
+	//IterativeParseNext returns per each parsing completion(on lexical level)
+	result.str("");
+	for (const auto& i : this->get_mykeyvalue()) {
 
-	/// pushing the key-value into s3select object. that s3seelct-object should filter according to from-clause and projection defintions
-	//  this object could remain empty (no key-value matches the search-pattern)
-	switch(i.second.type()) {
-	  case Valuesax::Decimal: result << i.first << " : " << i.second.asInt() << "\n"; break;
-	  case Valuesax::Double: result << i.first << " : " << i.second.asDouble() << "\n"; break;
-	  case Valuesax::String: result << i.first << " : " << i.second.asString() << "\n"; break;
-	  case Valuesax::Bool: result << i.first << " : " << std::boolalpha << i.second.asBool() << "\n"; break;
-	  case Valuesax::Null: result << i.first << " : " << "null" << "\n"; break;
-	  default: break;
+	  /// pushing the key-value into s3select object. that s3seelct-object should filter according to from-clause and projection defintions
+	  //  this object could remain empty (no key-value matches the search-pattern)
+	  switch(i.second.type()) {
+	    case Valuesax::Decimal: result << i.first << " : " << i.second.asInt() << "\n"; break;
+	    case Valuesax::Double: result << i.first << " : " << i.second.asDouble() << "\n"; break;
+	    case Valuesax::String: result << i.first << " : " << i.second.asString() << "\n"; break;
+	    case Valuesax::Bool: result << i.first << " : " << std::boolalpha << i.second.asBool() << "\n"; break;
+	    case Valuesax::Null: result << i.first << " : " << "null" << "\n"; break;
+	    default: break;
+	  }
 	}
-      }
 
-      //print result (actually its calling to s3select for processing. the s3slect-object may contain zero matching key-values)
-      std::cout << result.str() << std::endl;
+	//print result (actually its calling to s3select for processing. the s3slect-object may contain zero matching key-values)
+	std::cout << result.str() << std::endl;
 
-      //once all key-values move into s3select(for further filtering and processing), it should be cleared
-      this->emptyhandler();
+	//once all key-values move into s3select(for further filtering and processing), it should be cleared
+	this->emptyhandler();
 
-      if (!end_of_stream && stream_buffer.getBytesLeft() < 100)//TODO this condition could be replaced. it also define the amount of data that should be copy
-      {//the non processed bytes will be processed on next fetched chunk
-	return;
-      }
+	if (!end_of_stream && stream_buffer.next_src_==0 && stream_buffer.getBytesLeft() < 100)//TODO this condition could be replaced. it also define the amount of data that should be copy
+	{//the non processed bytes will be processed on next fetched chunk
+	  //TODO save remaining-bytes to internal buffer (or caller will use 2 sets of buffer)
+	  stream_buffer.saveRemainingBytes();
+	  return 0;
+	}
 
-      // error message
-      if(reader.HasParseError())  {
-	rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
-	size_t o = reader.GetErrorOffset();
-	std::cout << "PARSE ERROR " << c << " " << o << std::endl;
-	break;
-      }
-    }//while reader.IterativeParseComplete
-  }  
+	// error message
+	if(reader.HasParseError())  {
+	  rapidjson::ParseErrorCode c = reader.GetParseErrorCode();
+	  size_t o = reader.GetErrorOffset();
+	  std::cout << "PARSE ERROR " << c << " " << o << std::endl;
+	  return -1;	  
+	}
+      }//while reader.IterativeParseComplete
+
+      return 0;
+    }  
 
 };
 
