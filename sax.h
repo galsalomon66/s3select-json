@@ -140,7 +140,7 @@ class ChunksStreamer : public rapidjson::MemoryStream {
 
     ChunksStreamer(const Ch *src, size_t size) : rapidjson::MemoryStream(src,size){next_src_=0;next_size_=0;}
 
-    virtual Ch Peek() //const 
+    Ch Peek() //const 
     {
       if(RAPIDJSON_UNLIKELY(src_ == end_))
       {
@@ -160,7 +160,7 @@ class ChunksStreamer : public rapidjson::MemoryStream {
       return *src_;
     }
 
-    virtual Ch Take() 
+    Ch Take() 
     {
       if(RAPIDJSON_UNLIKELY(src_ == end_))
       {
@@ -391,7 +391,7 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
 	}
 
 	//print result (actually its calling to s3select for processing. the s3slect-object may contain zero matching key-values)
-	std::cout << result.str() << std::endl;
+	//std::cout << result.str() << std::endl;
 
 	//once all key-values move into s3select(for further filtering and processing), it should be cleared
 	this->emptyhandler();
