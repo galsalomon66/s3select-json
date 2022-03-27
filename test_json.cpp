@@ -60,7 +60,7 @@ std::string parse_json_dom(const char* file_name)
 }
 
 
-int RGW_send_data(const char* object_name)
+int RGW_send_data(const char* object_name, std::string & result)
 {//purpose: simulate RGW streaming an object into s3select
 
   std::ifstream input_file_stream;
@@ -89,12 +89,37 @@ int RGW_send_data(const char* object_name)
   }
   handler.process_rgw_buffer(0, 0, true);
 
+  result = handler.get_full_result();
   return 0;
 }
 
-int main(int argc, char* argv[])
+int test_compare(int argc, char* argv[])
 {
-  RGW_send_data(argv[1]);
+  std::string res;
+  std::ofstream o1,o2;
+ 
+  RGW_send_data(argv[1],res);
 
+  std::string res2 = parse_json_dom(argv[1]);
+
+  o1.open(std::string(argv[1]).append(".sax.out"));
+  o2.open(std::string(argv[1]).append(".dom.out"));
+
+
+  o1 << res;
+  o2 << res2;
+
+  o1.close();
+  o2.close();
+  
   return 0;
 }
+
+int main(int argc,char **argv)
+{
+  std::string res;
+  RGW_send_data(argv[1],res);
+   
+  //std::cout << res; 
+}
+

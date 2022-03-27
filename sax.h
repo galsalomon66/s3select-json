@@ -10,7 +10,7 @@
 #include <sstream>
 #include <fstream>
 #include <vector>
-#include <unordered_map>
+
 
 class Valuesax {
 
@@ -37,68 +37,52 @@ class Valuesax {
 
     Valuesax(): _type(Decimal), _double(0.0), _bool(false),_num(0) {}
 
-    Valuesax Parse(std::string const& s) {
-      Valuesax result;
-      result._type = Valuesax::String;
-
-      result._string = s;
-      return result;
+    Valuesax& Parse(std::string const& s) {
+      _type = Valuesax::String;
+      _string = s;
+      return *this;
     }
 
-    Valuesax Parse(const double& s) {
-      Valuesax result;
-      result._type = Valuesax::Double;
-
-      result._double = s;
-      return result;
+    Valuesax& Parse(const double& s) {
+      _type = Valuesax::Double;
+      _double = s;
+      return *this;
     }
 
-    Valuesax Parse(bool& s) {
-      Valuesax result;
-      result._type = Valuesax::Bool;
-
-      result._bool = s;
-      return result;
+    Valuesax& Parse(bool& s) {
+      _type = Valuesax::Bool;
+      _bool = s;
+      return *this;
     }
 
-    Valuesax Parse(const int& s) {
-      Valuesax result;
-      result._type = Valuesax::Decimal;
-
-      result._num = s;
-      return result;
+    Valuesax& Parse(const int& s) {
+      _type = Valuesax::Decimal;
+      _num = s;
+      return *this;
     }
 
-    Valuesax Parse(const unsigned& s) {
-      Valuesax result;
-      result._type = Valuesax::Decimal;
-
-      result._num = s;
-      return result;
+    Valuesax& Parse(const unsigned& s) {
+      _type = Valuesax::Decimal;
+      _num = s;
+      return *this;
     }
 
-    Valuesax Parse(const int64_t& s) {
-      Valuesax result;
-      result._type = Valuesax::Decimal;
-
-      result._num = s;
-      return result;
+    Valuesax& Parse(const int64_t& s) {
+      _type = Valuesax::Decimal;
+      _num = s;
+      return *this;
     }
 
-    Valuesax Parse(const uint64_t& s) {
-      Valuesax result;
-      result._type = Valuesax::Decimal;
-
-      result._num = s;
-      return result;
+    Valuesax& Parse(const uint64_t& s) {
+      _type = Valuesax::Decimal;
+      _num = s;
+      return *this;
     }
 
-    Valuesax Parse(const std::nullptr_t& s) {
-      Valuesax result;
-      result._type = Valuesax::Null;
-
-      result._null = s;
-      return result;
+    Valuesax& Parse(const std::nullptr_t& s) {
+      _type = Valuesax::Null;
+      _null = s;
+      return *this;
     }
 
 
@@ -220,29 +204,34 @@ class ChunksStreamer : public rapidjson::MemoryStream {
 };
 
 class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandler> {
+
   public:
+
+  typedef enum {OBJECT_STATE,ARRAY_STATE} en_json_elm_state_t;
+
+  public:
+
     std::vector < std::pair < std::string, Valuesax>> mymap;
     Valuesax value;
-    std::vector <char> vect;
-    std::string keyname{};
-    std::string keyvalue;
-    bool valuep{};
-    size_t start_counter{};
-    std::vector<std::string> mystack;
-    std::unordered_map<int, std::string> key_stack;
     ChunksStreamer stream_buffer;
     bool init_buffer_stream;
-
     rapidjson::Reader reader;
+    std::vector<en_json_elm_state_t> json_element_state;
+    std::string m_result;
+    std::vector<std::string> gs_key_stack;
 
-    MyHandler() : valuep{false}, start_counter{0},init_buffer_stream(false)
+    MyHandler() : init_buffer_stream(false)
     {}
 
-    std::string createKey()
-    {
-      //loop on key stack
-      //pop last element
-      return std::string("");
+    std::string get_key_path()
+    {//for debug
+	std::string res;
+	for(const auto & i: gs_key_stack)
+	{
+	  res.append(i);
+	  res.append(std::string("/"));
+	}
+	return res;
     }
 
     void emptyhandler() {
@@ -253,106 +242,86 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
       return mymap;
     }
 
+    void dec_key_path()
+    {
+      if(json_element_state.back() != ARRAY_STATE)
+	{
+	  if(gs_key_stack.size() != 0)
+	    gs_key_stack.pop_back();
+	}
+    }
+
+    void push_new_key_value(Valuesax& v)//TODO should be reference
+    {
+      mymap.push_back(std::make_pair(get_key_path(), v));
+      dec_key_path();
+    }
+
     bool Null() {
-      mymap.push_back(std::make_pair(keyvalue, value.Parse(nullptr)));
-      valuep = true; 
+      // at this point should verify against from-clause/where-clause/project. if match then push to scratch-area
+      push_new_key_value(value.Parse(nullptr));
       return true; }
 
     bool Bool(bool b) {
-      mymap.push_back(std::make_pair(keyvalue, value.Parse(b)));
-      valuep = true;
+      push_new_key_value(value.Parse(b));
       return true; }
 
     bool Int(int i) { 
-      mymap.push_back(std::make_pair(keyvalue, value.Parse(i)));
+      push_new_key_value(value.Parse(i));
       return true; }
 
     bool Uint(unsigned u) {
-      mymap.push_back(std::make_pair(keyvalue, value.Parse(u)));
-      valuep = true;
+      push_new_key_value(value.Parse(u));
       return true; }
 
     bool Int64(int64_t i) { 
-      mymap.push_back(std::make_pair(keyvalue, value.Parse(i)));
+      push_new_key_value(value.Parse(i));
       return true; }
 
     bool Uint64(uint64_t u) { 
-      mymap.push_back(std::make_pair(keyvalue, value.Parse(u)));
+      push_new_key_value(value.Parse(u));
       return true; }
 
     bool Double(double d) { 
-      mymap.push_back(std::make_pair(keyvalue, value.Parse(d)));
-      valuep = true;
+      push_new_key_value(value.Parse(d));
       return true; }
 
     bool String(const char* str, rapidjson::SizeType length, bool copy) {
-      mymap.push_back(std::make_pair(keyvalue, value.Parse(str)));
-      valuep = true;
+      //TODO use copy
+      push_new_key_value(value.Parse(str));
+      return true;
+    }
+
+    bool Key(const char* str, rapidjson::SizeType length, bool copy) {
+      gs_key_stack.push_back(std::string(str));
       return true;
     }
 
     bool StartObject() {
-      if(!valuep) {
-	if (mystack.size() == 0 || mystack.front() != keyname) {
-	  if (keyname.length()) {
-	    mystack.push_back(keyname);
-	    start_counter = vect.size();
-	    key_stack[start_counter] = keyname;
-	  }
-	}
-      }
-      vect.push_back('{');
+      json_element_state.push_back(OBJECT_STATE);
       return true; 
     }
-
-    bool Key(const char* str, rapidjson::SizeType length, bool copy) {
-      std::vector<std::string> stack{mystack};
-      stack.push_back(str);
-      valuep = false;
-      keyvalue = "";
-
-      for (const auto& i: stack) {
-	if (i != "") {
-	  keyvalue += i + '/';
-	}
-      }
-      keyname = str;
-      return true;
-    }
-
+  
     bool EndObject(rapidjson::SizeType memberCount) {
-      vect.pop_back();
-      if (mystack.size() > 0 && vect.size()  == start_counter) {
-	if(key_stack[vect.size()] == mystack.back()) {
-	  mystack.pop_back();
-	}
-
-	--start_counter;
-      }
-      return true;
-    }
-
-    bool StartArray() {
-      if(!valuep) {
-	if (mystack.size() == 0 || mystack[mystack.size() - 1] != keyname) {
-	  mystack.push_back(keyname);
-	  start_counter = vect.size();
-	  key_stack[start_counter] = keyname;
-	}
-      }
-      vect.push_back('[');
+      json_element_state.pop_back();
+      dec_key_path();
       return true; 
+    }
+ 
+    bool StartArray() {
+      json_element_state.push_back(ARRAY_STATE);
+      return true;
     }
 
     bool EndArray(rapidjson::SizeType elementCount) { 
-      vect.pop_back();
-      if (mystack.size() > 0 && vect.size()  == start_counter) {
-	if(key_stack[vect.size()] == mystack.back()) {
-	  mystack.pop_back();
-	}
-	--start_counter;
-      }
-      return true; 
+      json_element_state.pop_back();
+      dec_key_path();
+      return true;
+    }
+
+    std::string& get_result()
+    {
+      return m_result;
     }
 
     int process_rgw_buffer(char* rgw_buffer,size_t rgw_buffer_sz, bool end_of_stream=false)
@@ -377,7 +346,8 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
 	//IterativeParseNext returns per each parsing completion(on lexical level)
 	result.str("");
 	for (const auto& i : this->get_mykeyvalue()) {
-
+	//debug purpose only 
+	
 	  /// pushing the key-value into s3select object. that s3seelct-object should filter according to from-clause and projection defintions
 	  //  this object could remain empty (no key-value matches the search-pattern)
 	  switch(i.second.type()) {
@@ -391,7 +361,11 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
 	}
 
 	//print result (actually its calling to s3select for processing. the s3slect-object may contain zero matching key-values)
-	//std::cout << result.str() << std::endl;
+	if(result.str().size())
+	{
+	    //std::cout << result.str();// << std::endl;
+	   // m_result.append(result.str());
+	}
 
 	//once all key-values move into s3select(for further filtering and processing), it should be cleared
 	this->emptyhandler();
@@ -413,6 +387,11 @@ class MyHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, MyHandl
       }//while reader.IterativeParseComplete
 
       return 0;
+    }
+
+    std::string& get_full_result()
+    {
+      return m_result;
     }  
 
 };
